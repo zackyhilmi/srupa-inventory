@@ -423,6 +423,40 @@
             background: #e1e8ed;
         }
     </style>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, collection, doc, setDoc, getDocs, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFyG2hcNmiufzsqFLqrkOxpZX1m8QAAwQ",
+            authDomain: "srupa-inventory.firebaseapp.com",
+            projectId: "srupa-inventory",
+            storageBucket: "srupa-inventory.firebasestorage.app",
+            messagingSenderId: "274644925840",
+            appId: "1:274644925840:web:e5f13a56077ee030db0715",
+            measurementId: "G-6DCXJ4KXXT"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const db = getFirestore(app);
+
+        // Expose db & Firestore helpers ke window agar bisa diakses dari script global
+        window.db = db;
+        window.fsCollection = collection;
+        window.fsDoc = doc;
+        window.fsSetDoc = setDoc;
+        window.fsGetDocs = getDocs;
+        window.fsDeleteDoc = deleteDoc;
+        window.fsOnSnapshot = onSnapshot;
+
+        // Flag bahwa Firebase sudah siap
+        window.firebaseReady = true;
+        document.dispatchEvent(new Event('firebaseReady'));
+    </script>
 </head>
 <body>
     <div class="container">
@@ -594,25 +628,56 @@
     </div>
 
     <script>
-        // Data Storage
-        let inventory = JSON.parse(localStorage.getItem('srupaInventory')) || {
-            posters: [],
-            frames: []
-        };
-
+        // =============================================
+        // STATE
+        // =============================================
+        let inventory = { posters: [], frames: [] };
         let editingItem = null;
         let editingType = null;
 
-        // Tab Switching
+        // =============================================
+        // FIREBASE HELPERS (tersedia setelah firebaseReady)
+        // =============================================
+        async function saveToFirestore(type, item) {
+            const db = window.db;
+            const id = `${type}_${item.name || item.color}_${item.size}_${Date.now()}`.replace(/\s+/g, '_');
+            item.id = item.id || id;
+            await window.fsSetDoc(window.fsDoc(db, `inventory_${type}`, item.id), item);
+        }
+
+        async function deleteFromFirestore(type, itemId) {
+            await window.fsDeleteDoc(window.fsDoc(window.db, `inventory_${type}`, itemId));
+        }
+
+        function listenToFirestore() {
+            // Real-time listener untuk posters
+            window.fsOnSnapshot(window.fsCollection(window.db, 'inventory_posters'), (snapshot) => {
+                inventory.posters = snapshot.docs.map(d => d.data());
+                renderPosters(document.getElementById('posterSearch').value);
+                updateStats();
+            });
+
+            // Real-time listener untuk frames
+            window.fsOnSnapshot(window.fsCollection(window.db, 'inventory_frames'), (snapshot) => {
+                inventory.frames = snapshot.docs.map(d => d.data());
+                renderFrames(document.getElementById('frameSearch').value);
+                updateStats();
+            });
+        }
+
+        // =============================================
+        // TAB SWITCHING
+        // =============================================
         function switchTab(tab) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            
             document.getElementById(tab).classList.add('active');
             event.target.classList.add('active');
         }
 
-        // Get Stock Status
+        // =============================================
+        // UTILS
+        // =============================================
         function getStockStatus(stock) {
             if (stock === 0) return { class: 'out', text: 'Habis' };
             if (stock <= 5) return { class: 'low', text: 'Menipis' };
@@ -620,25 +685,32 @@
             return { class: 'high', text: 'Banyak' };
         }
 
-        // Update Statistics
         function updateStats() {
-            const totalPosters = inventory.posters.length;
-            const totalFrames = inventory.frames.length;
-            
-            const lowStockCount = [
+            document.getElementById('totalPosters').textContent = inventory.posters.length;
+            document.getElementById('totalFrames').textContent = inventory.frames.length;
+            const lowStock = [
                 ...inventory.posters.filter(p => p.stock <= 5),
                 ...inventory.frames.filter(f => f.stock <= 5)
             ].length;
-
-            document.getElementById('totalPosters').textContent = totalPosters;
-            document.getElementById('totalFrames').textContent = totalFrames;
-            document.getElementById('lowStockCount').textContent = lowStockCount;
+            document.getElementById('lowStockCount').textContent = lowStock;
         }
 
-        // Render Posters
+        function showSuccess(btn, message) {
+            const originalText = btn.textContent;
+            btn.textContent = message;
+            btn.style.background = 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)';
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+            }, 2000);
+        }
+
+        // =============================================
+        // RENDER
+        // =============================================
         function renderPosters(searchQuery = '') {
             const tbody = document.getElementById('posterTableBody');
-            let filtered = inventory.posters.filter(p => 
+            let filtered = inventory.posters.filter(p =>
                 p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 p.size.includes(searchQuery)
             );
@@ -648,7 +720,7 @@
                 return;
             }
 
-            tbody.innerHTML = filtered.map((poster, index) => {
+            tbody.innerHTML = filtered.map((poster) => {
                 const status = getStockStatus(poster.stock);
                 return `
                     <tr>
@@ -657,18 +729,17 @@
                         <td><strong>${poster.stock}</strong></td>
                         <td><span class="stock-badge ${status.class}">${status.text}</span></td>
                         <td class="action-btns">
-                            <button class="btn-edit" onclick="openEditModal('poster', ${index})">✏️ Edit</button>
-                            <button class="btn-delete" onclick="deleteItem('poster', ${index})">🗑️ Hapus</button>
+                            <button class="btn-edit" onclick="openEditModal('poster', '${poster.id}')">✏️ Edit</button>
+                            <button class="btn-delete" onclick="deleteItem('poster', '${poster.id}')">🗑️ Hapus</button>
                         </td>
                     </tr>
                 `;
             }).join('');
         }
 
-        // Render Frames
         function renderFrames(searchQuery = '') {
             const tbody = document.getElementById('frameTableBody');
-            let filtered = inventory.frames.filter(f => 
+            let filtered = inventory.frames.filter(f =>
                 f.color.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 f.size.includes(searchQuery)
             );
@@ -678,7 +749,7 @@
                 return;
             }
 
-            tbody.innerHTML = filtered.map((frame, index) => {
+            tbody.innerHTML = filtered.map((frame) => {
                 const status = getStockStatus(frame.stock);
                 return `
                     <tr>
@@ -690,82 +761,80 @@
                         <td><strong>${frame.stock}</strong></td>
                         <td><span class="stock-badge ${status.class}">${status.text}</span></td>
                         <td class="action-btns">
-                            <button class="btn-edit" onclick="openEditModal('frame', ${index})">✏️ Edit</button>
-                            <button class="btn-delete" onclick="deleteItem('frame', ${index})">🗑️ Hapus</button>
+                            <button class="btn-edit" onclick="openEditModal('frame', '${frame.id}')">✏️ Edit</button>
+                            <button class="btn-delete" onclick="deleteItem('frame', '${frame.id}')">🗑️ Hapus</button>
                         </td>
                     </tr>
                 `;
             }).join('');
         }
 
-        // Save to LocalStorage
-        function saveInventory() {
-            localStorage.setItem('srupaInventory', JSON.stringify(inventory));
-            updateStats();
-        }
-
-        // Add Poster
-        document.getElementById('posterForm').addEventListener('submit', function(e) {
+        // =============================================
+        // ADD POSTER
+        // =============================================
+        document.getElementById('posterForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
+            const btn = this.querySelector('.submit-btn');
             const name = document.getElementById('posterName').value.trim();
             const size = document.getElementById('posterSize').value;
             const stock = parseInt(document.getElementById('posterStock').value);
 
-            // Check if already exists
             const exists = inventory.posters.find(p => p.name === name && p.size === size);
-            if (exists) {
-                alert('Poster dengan nama dan ukuran ini sudah ada!');
-                return;
-            }
+            if (exists) { alert('Poster dengan nama dan ukuran ini sudah ada!'); return; }
 
-            inventory.posters.push({ 
-                name, 
-                size, 
-                stock, 
-                createdAt: new Date().toISOString() 
-            });
-            
-            saveInventory();
-            renderPosters();
-            
-            this.reset();
-            showSuccess(event.target.querySelector('.submit-btn'), '✅ Poster Ditambahkan!');
+            const newItem = { name, size, stock, createdAt: new Date().toISOString() };
+            newItem.id = `poster_${name}_${size}_${Date.now()}`.replace(/\s+/g, '_');
+
+            btn.textContent = '⏳ Menyimpan...';
+            btn.disabled = true;
+            try {
+                await saveToFirestore('posters', newItem);
+                this.reset();
+                showSuccess(btn, '✅ Poster Ditambahkan!');
+            } catch (err) {
+                console.error(err);
+                alert('Gagal menyimpan ke Firestore: ' + err.message);
+            } finally {
+                btn.disabled = false;
+            }
         });
 
-        // Add Frame
-        document.getElementById('frameForm').addEventListener('submit', function(e) {
+        // =============================================
+        // ADD FRAME
+        // =============================================
+        document.getElementById('frameForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
+            const btn = this.querySelector('.submit-btn');
             const color = document.getElementById('frameColor').value;
             const size = document.getElementById('frameSize').value;
             const stock = parseInt(document.getElementById('frameStock').value);
 
-            // Check if already exists
             const exists = inventory.frames.find(f => f.color === color && f.size === size);
-            if (exists) {
-                alert('Frame dengan warna dan ukuran ini sudah ada!');
-                return;
-            }
+            if (exists) { alert('Frame dengan warna dan ukuran ini sudah ada!'); return; }
 
-            inventory.frames.push({ 
-                color, 
-                size, 
-                stock, 
-                createdAt: new Date().toISOString() 
-            });
-            
-            saveInventory();
-            renderFrames();
-            
-            this.reset();
-            showSuccess(event.target.querySelector('.submit-btn'), '✅ Frame Ditambahkan!');
+            const newItem = { color, size, stock, createdAt: new Date().toISOString() };
+            newItem.id = `frame_${color}_${size}_${Date.now()}`.replace(/\s+/g, '_');
+
+            btn.textContent = '⏳ Menyimpan...';
+            btn.disabled = true;
+            try {
+                await saveToFirestore('frames', newItem);
+                this.reset();
+                showSuccess(btn, '✅ Frame Ditambahkan!');
+            } catch (err) {
+                console.error(err);
+                alert('Gagal menyimpan ke Firestore: ' + err.message);
+            } finally {
+                btn.disabled = false;
+            }
         });
 
-        // Open Edit Modal
-        function openEditModal(type, index) {
+        // =============================================
+        // EDIT MODAL
+        // =============================================
+        function openEditModal(type, itemId) {
             editingType = type;
-            editingItem = index;
+            editingItem = itemId;
 
             const modal = document.getElementById('editModal');
             const title = document.getElementById('editModalTitle');
@@ -774,13 +843,13 @@
             const stockInput = document.getElementById('editStock');
 
             if (type === 'poster') {
-                const item = inventory.posters[index];
+                const item = inventory.posters.find(p => p.id === itemId);
                 title.textContent = 'Edit Stok Poster';
                 label.textContent = 'Nama Poster';
                 itemName.value = `${item.name} (${item.size} cm)`;
                 stockInput.value = item.stock;
             } else if (type === 'frame') {
-                const item = inventory.frames[index];
+                const item = inventory.frames.find(f => f.id === itemId);
                 title.textContent = 'Edit Stok Frame';
                 label.textContent = 'Frame';
                 itemName.value = `${item.color} ${item.size} cm`;
@@ -790,78 +859,74 @@
             modal.classList.add('active');
         }
 
-        // Close Edit Modal
         function closeEditModal() {
             document.getElementById('editModal').classList.remove('active');
             editingItem = null;
             editingType = null;
         }
 
-        // Save Edit
-        document.getElementById('editForm').addEventListener('submit', function(e) {
+        document.getElementById('editForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-
             const newStock = parseInt(document.getElementById('editStock').value);
+            const btn = this.querySelector('.submit-btn');
+            btn.textContent = '⏳ Menyimpan...';
+            btn.disabled = true;
 
-            if (editingType === 'poster') {
-                inventory.posters[editingItem].stock = newStock;
-                renderPosters();
-            } else if (editingType === 'frame') {
-                inventory.frames[editingItem].stock = newStock;
-                renderFrames();
+            try {
+                let item;
+                if (editingType === 'poster') {
+                    item = inventory.posters.find(p => p.id === editingItem);
+                } else {
+                    item = inventory.frames.find(f => f.id === editingItem);
+                }
+                item.stock = newStock;
+                await saveToFirestore(editingType === 'poster' ? 'posters' : 'frames', item);
+                closeEditModal();
+            } catch (err) {
+                console.error(err);
+                alert('Gagal update Firestore: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '💾 Simpan Perubahan';
             }
-
-            saveInventory();
-            closeEditModal();
         });
 
-        // Delete Item
-        function deleteItem(type, index) {
+        // =============================================
+        // DELETE
+        // =============================================
+        async function deleteItem(type, itemId) {
             if (!confirm('Yakin ingin menghapus item ini?')) return;
-
-            if (type === 'poster') {
-                inventory.posters.splice(index, 1);
-                renderPosters();
-            } else if (type === 'frame') {
-                inventory.frames.splice(index, 1);
-                renderFrames();
+            try {
+                await deleteFromFirestore(type === 'poster' ? 'posters' : 'frames', itemId);
+            } catch (err) {
+                console.error(err);
+                alert('Gagal menghapus dari Firestore: ' + err.message);
             }
-
-            saveInventory();
         }
 
-        // Show Success Message
-        function showSuccess(btn, message) {
-            const originalText = btn.textContent;
-            btn.textContent = message;
-            btn.style.background = 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)';
-            
-            setTimeout(() => {
-                btn.textContent = originalText;
-                btn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-            }, 2000);
-        }
-
-        // Search Functions
-        document.getElementById('posterSearch').addEventListener('input', (e) => {
-            renderPosters(e.target.value);
-        });
-
-        document.getElementById('frameSearch').addEventListener('input', (e) => {
-            renderFrames(e.target.value);
-        });
+        // =============================================
+        // SEARCH
+        // =============================================
+        document.getElementById('posterSearch').addEventListener('input', (e) => renderPosters(e.target.value));
+        document.getElementById('frameSearch').addEventListener('input', (e) => renderFrames(e.target.value));
 
         // Close modal on outside click
         document.getElementById('editModal').addEventListener('click', function(e) {
-            if (e.target.id === 'editModal') {
-                closeEditModal();
-            }
+            if (e.target.id === 'editModal') closeEditModal();
         });
 
-        // Initial Render
-        renderPosters();
-        renderFrames();
-        updateStats();
+        // =============================================
+        // INIT — tunggu Firebase siap lalu pasang listener
+        // =============================================
+        function initApp() {
+            if (window.firebaseReady) {
+                listenToFirestore();
+            } else {
+                document.addEventListener('firebaseReady', listenToFirestore);
+            }
+        }
+
+        initApp();
     </script>
 </body>
 </html>
