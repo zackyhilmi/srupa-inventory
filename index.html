@@ -5,6 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inventory Management - Srupa Labs</title>
     <style>
+        .action-btns {
+  display: none;
+}
+
+body.is-admin .action-btns {
+  display: flex;
+}
+.input-card {
+  display: none;
+}
+
+body.is-admin .input-card {
+  display: block;
+}
         * {
             margin: 0;
             padding: 0;
@@ -268,10 +282,9 @@
             color: #999;
         }
 
-        .action-btns {
-            display: flex;
-            gap: 8px;
-        }
+      .action-btns {
+    gap: 8px;
+}
 
         .btn-edit {
             padding: 6px 12px;
@@ -429,6 +442,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getFirestore, collection, doc, setDoc, getDocs, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDFyG2hcNmiufzsqFLqrkOxpZX1m8QAAwQ",
@@ -443,6 +457,30 @@
         const app = initializeApp(firebaseConfig);
         const analytics = getAnalytics(app);
         const db = getFirestore(app);
+        const auth = getAuth(app); 
+        window.auth = auth;
+        window.login = async function(email, password) {
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+    alert("Login berhasil");
+  } catch (err) {
+    alert("Login gagal: " + err.message);
+  }
+};
+
+window.logout = function() {
+  signOut(auth);
+};
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    document.body.classList.add("is-admin");
+    document.getElementById("loginBox")?.style.setProperty("display", "none");
+  } else {
+    document.body.classList.remove("is-admin");
+    document.getElementById("loginBox")?.style.setProperty("display", "block");
+  }
+});
 
         // Expose db & Firestore helpers ke window agar bisa diakses dari script global
         window.db = db;
@@ -459,6 +497,12 @@
     </script>
 </head>
 <body>
+    <div id="loginBox" style="margin-bottom:20px; padding:15px; background:#fff; border-radius:10px;">
+  <input type="email" id="email" placeholder="Email">
+  <input type="password" id="password" placeholder="Password">
+  <button onclick="login(email.value, password.value)">Login</button>
+  <button onclick="logout()">Logout</button>
+</div>
     <div class="container">
         <div class="header">
             <h1>📦 Inventory Management</h1>
