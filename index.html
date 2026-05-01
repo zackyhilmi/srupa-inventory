@@ -1,976 +1,857 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventory Management - Srupa Labs</title>
-    <style>
-        .action-btns {
-  display: none;
-}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Srupa Labs — Inventory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
-body.is-admin .action-btns {
-  display: flex;
-}
-.input-card {
-  display: none;
-}
+<!--
+  FIREBASE SDK — ES Module
+  Security:
+  • API key bersifat PUBLIC (bukan secret).
+  • Keamanan data diatur lewat Firestore Security Rules + Firebase Auth.
+  • Pasang rules ini di Firebase Console → Firestore → Rules:
 
-body.is-admin .input-card {
-  display: block;
-}
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+    rules_version = '2';
+    service cloud.firestore {
+      match /databases/{database}/documents {
+        match /{col}/{doc} {
+          allow read, write: if request.auth != null;
         }
+      }
+    }
+-->
+<script type="module">
+  import { initializeApp }   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAnalytics }    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
+  import {
+    getFirestore, collection, doc,
+    setDoc, deleteDoc, onSnapshot,
+    enableIndexedDbPersistence
+  }                          from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import {
+    getAuth, signInWithEmailAndPassword,
+    signOut, onAuthStateChanged
+  }                          from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: linear-gradient(135deg, #f5f7fa 0%, #e4e9f0 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
+  const cfg = {
+    apiKey:            "AIzaSyDFyG2hcNmiufzsqFLqrkOxpZX1m8QAAwQ",
+    authDomain:        "srupa-inventory.firebaseapp.com",
+    projectId:         "srupa-inventory",
+    storageBucket:     "srupa-inventory.firebasestorage.app",
+    messagingSenderId: "274644925840",
+    appId:             "1:274644925840:web:e5f13a56077ee030db0715",
+    measurementId:     "G-6DCXJ4KXXT"
+  };
 
-        .container {
-            max-width: 1600px;
-            margin: 0 auto;
-        }
-
-        .header {
-            background: white;
-            padding: 30px;
-            border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-            margin-bottom: 30px;
-        }
-
-        .header h1 {
-            color: #1a1a1a;
-            font-size: 32px;
-            font-weight: 700;
-            margin-bottom: 8px;
-        }
-
-        .header p {
-            color: #666;
-            font-size: 15px;
-        }
-
-        .tabs {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 30px;
-        }
-
-        .tab-btn {
-            padding: 12px 24px;
-            background: white;
-            border: 2px solid #e1e8ed;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 15px;
-            font-weight: 600;
-            color: #666;
-            transition: all 0.3s;
-        }
-
-        .tab-btn:hover {
-            border-color: #667eea;
-            color: #667eea;
-        }
-
-        .tab-btn.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-color: transparent;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        .inventory-grid {
-            display: grid;
-            grid-template-columns: 400px 1fr;
-            gap: 30px;
-            align-items: start;
-        }
-
-        .input-card {
-            background: white;
-            padding: 30px;
-            border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-            position: sticky;
-            top: 20px;
-        }
-
-        .input-card h2 {
-            font-size: 20px;
-            color: #1a1a1a;
-            margin-bottom: 24px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .input-card h2::before {
-            content: '';
-            width: 4px;
-            height: 24px;
-            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
-            border-radius: 2px;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            font-size: 14px;
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 8px;
-        }
-
-        .form-group input, .form-group select {
-            width: 100%;
-            padding: 12px 16px;
-            border: 2px solid #e1e8ed;
-            border-radius: 10px;
-            font-size: 15px;
-            transition: all 0.3s;
-            font-family: inherit;
-        }
-
-        .form-group input:focus, .form-group select:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        .submit-btn {
-            width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-        }
-
-        .submit-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-        }
-
-        .inventory-list {
-            background: white;
-            padding: 30px;
-            border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-        }
-
-        .inventory-list h2 {
-            font-size: 20px;
-            color: #1a1a1a;
-            margin-bottom: 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .search-bar {
-            margin-bottom: 20px;
-            position: relative;
-        }
-
-        .search-bar input {
-            width: 100%;
-            padding: 14px 50px 14px 20px;
-            border: 2px solid #e1e8ed;
-            border-radius: 12px;
-            font-size: 15px;
-            transition: all 0.3s;
-            font-family: inherit;
-        }
-
-        .search-bar input:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        .search-icon {
-            position: absolute;
-            right: 18px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #999;
-            font-size: 20px;
-        }
-
-        .table-container {
-            overflow-x: auto;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        thead {
-            background: #f8f9fa;
-        }
-
-        th {
-            padding: 14px 16px;
-            text-align: left;
-            font-size: 13px;
-            font-weight: 700;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        td {
-            padding: 16px;
-            border-bottom: 1px solid #f0f2f5;
-            font-size: 14px;
-            color: #333;
-        }
-
-        tr:hover {
-            background: #fafbfc;
-        }
-
-        .stock-badge {
-            display: inline-block;
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 13px;
-            font-weight: 700;
-        }
-
-        .stock-badge.high {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .stock-badge.medium {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .stock-badge.low {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        .stock-badge.out {
-            background: #e8e9ea;
-            color: #999;
-        }
-
-      .action-btns {
-    gap: 8px;
-}
-
-        .btn-edit {
-            padding: 6px 12px;
-            background: #e3f2fd;
-            color: #1976d2;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 600;
-            transition: all 0.2s;
-        }
-
-        .btn-edit:hover {
-            background: #bbdefb;
-        }
-
-        .btn-delete {
-            padding: 6px 12px;
-            background: #fee;
-            color: #e74c3c;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 600;
-            transition: all 0.2s;
-        }
-
-        .btn-delete:hover {
-            background: #fdd;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #999;
-        }
-
-        .color-preview {
-            width: 24px;
-            height: 24px;
-            border-radius: 6px;
-            border: 2px solid #e1e8ed;
-            display: inline-block;
-            vertical-align: middle;
-            margin-right: 8px;
-        }
-
-        .color-preview.hitam { background: #1a1a1a; }
-        .color-preview.putih { background: #ffffff; }
-        .color-preview.kayu { background: linear-gradient(135deg, #8b6f47 0%, #c19a6b 100%); }
-        .color-preview.chrome { background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 50%, #a8a8a8 100%); }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 16px;
-            margin-bottom: 30px;
-        }
-
-        .stat-card {
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-        }
-
-        .stat-value {
-            font-size: 32px;
-            font-weight: 700;
-            color: #667eea;
-            margin-bottom: 8px;
-        }
-
-        .stat-label {
-            font-size: 13px;
-            color: #666;
-            font-weight: 500;
-        }
-
-        @media (max-width: 1024px) {
-            .inventory-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .input-card {
-                position: relative;
-                top: 0;
-            }
-
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.6);
-            z-index: 1000;
-            backdrop-filter: blur(4px);
-            animation: fadeIn 0.3s;
-        }
-
-        .modal.active {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-
-        .modal-content {
-            background: white;
-            border-radius: 20px;
-            max-width: 500px;
-            width: 100%;
-            padding: 30px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        }
-
-        .modal-header {
-            margin-bottom: 24px;
-        }
-
-        .modal-header h3 {
-            font-size: 24px;
-            color: #1a1a1a;
-        }
-
-        .close-modal {
-            background: #f0f2f5;
-            border: none;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 20px;
-            color: #666;
-            transition: all 0.2s;
-            float: right;
-        }
-
-        .close-modal:hover {
-            background: #e1e8ed;
-        }
-    </style>
-
-    <!-- Firebase SDK -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, doc, setDoc, getDocs, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyDFyG2hcNmiufzsqFLqrkOxpZX1m8QAAwQ",
-            authDomain: "srupa-inventory.firebaseapp.com",
-            projectId: "srupa-inventory",
-            storageBucket: "srupa-inventory.firebasestorage.app",
-            messagingSenderId: "274644925840",
-            appId: "1:274644925840:web:e5f13a56077ee030db0715",
-            measurementId: "G-6DCXJ4KXXT"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const analytics = getAnalytics(app);
-        const db = getFirestore(app);
-        const auth = getAuth(app); 
-        window.auth = auth;
-        window.login = async function(email, password) {
   try {
-    await signInWithEmailAndPassword(auth, email, password);
-    alert("Login berhasil");
-  } catch (err) {
-    alert("Login gagal: " + err.message);
+    const app  = initializeApp(cfg);
+    getAnalytics(app);
+    const db   = getFirestore(app);
+    const auth = getAuth(app);
+
+    enableIndexedDbPersistence(db).catch(() => {});
+
+    window._fb = { db, auth, collection, doc, setDoc, deleteDoc, onSnapshot };
+
+    onAuthStateChanged(auth, user => {
+      window._user = user || null;
+      if (user) {
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('appShell').style.display    = 'flex';
+        document.getElementById('uEmail').textContent        = user.email;
+        document.getElementById('uAvatar').textContent       = user.email[0].toUpperCase();
+        if (!window._listening) { window._listening = true; window._startListeners(); }
+      } else {
+        document.getElementById('loginScreen').style.display = 'flex';
+        document.getElementById('appShell').style.display    = 'none';
+        window._listening = false;
+      }
+    });
+
+    window._login  = (e,p) => signInWithEmailAndPassword(auth,e,p);
+    window._logout = ()    => signOut(auth);
+    window.firebaseReady = true;
+  } catch(err) {
+    console.error(err);
+    window.firebaseInitError = err.message;
+    window.firebaseReady = true;
   }
-};
+</script>
 
-window.logout = function() {
-  signOut(auth);
-};
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#F0F2F5;
+  --surface:#fff;
+  --border:#E4E8EE;
+  --t1:#111827;--t2:#6B7280;--t3:#9CA3AF;
+  --accent:#1A73E8;--accent-lt:#EBF3FD;
+  --green:#16A34A;--green-lt:#DCFCE7;
+  --amber:#D97706;--amber-lt:#FEF3C7;
+  --red:#DC2626;--red-lt:#FEE2E2;
+  --gray-lt:#F3F4F6;
+  --nav:240px;--hdr:60px;--r:12px;
+  --font:'DM Sans',sans-serif;
+  --mono:'DM Mono',monospace;
+}
+html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t1);font-size:14px;line-height:1.5}
 
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    document.body.classList.add("is-admin");
-    document.getElementById("loginBox")?.style.setProperty("display", "none");
-  } else {
-    document.body.classList.remove("is-admin");
-    document.getElementById("loginBox")?.style.setProperty("display", "block");
-  }
-});
+/* ── LOGIN ── */
+#loginScreen{
+  display:flex;align-items:center;justify-content:center;
+  min-height:100vh;padding:20px;
+  background:linear-gradient(135deg,#e8edf5,#d0daea);
+}
+.lcard{
+  background:var(--surface);border-radius:20px;padding:44px 40px;
+  width:100%;max-width:400px;box-shadow:0 8px 40px rgba(0,0,0,.12);
+}
+.llogo{display:flex;align-items:center;gap:12px;margin-bottom:32px}
+.lmark{
+  width:42px;height:42px;background:var(--accent);border-radius:11px;
+  display:grid;place-items:center;font-size:20px;flex-shrink:0;
+}
+.lname{font-size:17px;font-weight:700}.lsub{font-size:12px;color:var(--t2)}
+.lcard h2{font-size:22px;font-weight:700;margin-bottom:5px}
+.lcard>p{font-size:13px;color:var(--t2);margin-bottom:26px}
+.lf{margin-bottom:14px}
+.lf label{display:block;font-size:12.5px;font-weight:600;margin-bottom:6px}
+.lf input{
+  width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:9px;
+  font-size:14px;font-family:var(--font);outline:none;
+  transition:border-color .2s,box-shadow .2s;
+}
+.lf input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(26,115,232,.12)}
+.lbtn{
+  width:100%;padding:11px;background:var(--accent);color:#fff;border:none;
+  border-radius:9px;font-size:15px;font-weight:600;cursor:pointer;
+  font-family:var(--font);margin-top:6px;transition:background .2s,transform .15s;
+}
+.lbtn:hover:not(:disabled){background:#1558b8;transform:translateY(-1px)}
+.lbtn:disabled{opacity:.65;cursor:not-allowed;transform:none}
+.lerr{
+  margin-top:12px;padding:10px 13px;background:var(--red-lt);color:var(--red);
+  border-radius:8px;font-size:13px;display:none;
+}
 
-        // Expose db & Firestore helpers ke window agar bisa diakses dari script global
-        window.db = db;
-        window.fsCollection = collection;
-        window.fsDoc = doc;
-        window.fsSetDoc = setDoc;
-        window.fsGetDocs = getDocs;
-        window.fsDeleteDoc = deleteDoc;
-        window.fsOnSnapshot = onSnapshot;
+/* ── APP SHELL ── */
+#appShell{display:none;min-height:100vh}
 
-        // Flag bahwa Firebase sudah siap
-        window.firebaseReady = true;
-        document.dispatchEvent(new Event('firebaseReady'));
-    </script>
+/* ── SIDEBAR ── */
+.sidebar{
+  width:var(--nav);background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:100;
+}
+.slogo{
+  padding:18px 18px 15px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;
+}
+.smark{
+  width:34px;height:34px;background:var(--accent);border-radius:8px;
+  display:grid;place-items:center;font-size:17px;flex-shrink:0;
+}
+.sname{font-size:15px;font-weight:700}.ssub{font-size:11px;color:var(--t2)}
+.nsec{padding:14px 11px 6px}
+.nseclbl{
+  font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.8px;color:var(--t3);padding:0 8px;margin-bottom:5px;
+}
+.nitem{
+  display:flex;align-items:center;gap:9px;padding:8px 11px;border-radius:8px;
+  cursor:pointer;font-size:13.5px;font-weight:500;color:var(--t2);
+  transition:all .15s;border:none;background:none;width:100%;text-align:left;margin-bottom:2px;
+}
+.nitem:hover{background:var(--gray-lt);color:var(--t1)}
+.nitem.active{background:var(--accent-lt);color:var(--accent);font-weight:600}
+.nico{font-size:16px;width:20px;text-align:center}
+.nbadge{
+  margin-left:auto;font-size:11px;font-weight:700;
+  background:var(--red-lt);color:var(--red);padding:2px 7px;border-radius:20px;
+}
+.sfooter{margin-top:auto;padding:14px 11px;border-top:1px solid var(--border)}
+.urow{display:flex;align-items:center;gap:9px}
+.uavatar{
+  width:32px;height:32px;background:var(--accent);border-radius:50%;
+  display:grid;place-items:center;color:#fff;font-size:13px;font-weight:700;flex-shrink:0;
+}
+.uinfo{flex:1;min-width:0}
+.uemail{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.urole{font-size:11px;color:var(--t2)}
+.logoutbtn{
+  background:none;border:none;cursor:pointer;color:var(--t3);
+  font-size:17px;padding:4px 6px;border-radius:6px;transition:all .15s;
+}
+.logoutbtn:hover{color:var(--red);background:var(--red-lt)}
+
+/* ── MAIN ── */
+.main{margin-left:var(--nav);flex:1;display:flex;flex-direction:column;min-height:100vh}
+
+/* ── TOPBAR ── */
+.topbar{
+  height:var(--hdr);background:var(--surface);border-bottom:1px solid var(--border);
+  padding:0 26px;display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:50;
+}
+.ttitle{font-size:16px;font-weight:700}
+.tsub{font-size:12px;color:var(--t2)}
+.fbstat{
+  display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
+  padding:5px 12px;border-radius:20px;
+}
+.fbstat.connecting{background:var(--amber-lt);color:var(--amber)}
+.fbstat.connected{background:var(--green-lt);color:var(--green)}
+.fbstat.error{background:var(--red-lt);color:var(--red)}
+.fdot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.fdot.pulse{animation:pulse 1.2s ease infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+
+/* ── PAGE ── */
+.page{padding:22px 26px;display:none}
+.page.active{display:block}
+
+/* ── STATS ROW ── */
+.srow{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.scard{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  padding:16px 18px;display:flex;align-items:center;gap:13px;
+}
+.sico{
+  width:42px;height:42px;border-radius:10px;
+  display:grid;place-items:center;font-size:19px;flex-shrink:0;
+}
+.sico.blue{background:var(--accent-lt)}
+.sico.green{background:var(--green-lt)}
+.sico.amber{background:var(--amber-lt)}
+.sico.red{background:var(--red-lt)}
+.sval{font-size:26px;font-weight:700;line-height:1;margin-bottom:3px}
+.slbl{font-size:12px;color:var(--t2);font-weight:500}
+
+/* ── CARD ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.chd{
+  padding:14px 18px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.ctitle{
+  font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:8px;
+}
+.ctitle::before{content:'';width:3px;height:15px;background:var(--accent);border-radius:2px}
+.cbody{padding:18px}
+
+/* ── INNER TABS ── */
+.itabs{
+  display:flex;gap:3px;background:var(--gray-lt);padding:4px;
+  border-radius:10px;width:fit-content;margin-bottom:18px;
+}
+.itab{
+  padding:7px 18px;border:none;border-radius:7px;font-size:13px;font-weight:600;
+  cursor:pointer;font-family:var(--font);color:var(--t2);background:none;transition:all .15s;
+}
+.itab.active{background:var(--surface);color:var(--t1);box-shadow:0 1px 4px rgba(0,0,0,.1)}
+
+/* ── INVENTORY GRID ── */
+.igrid{display:grid;grid-template-columns:330px 1fr;gap:18px;align-items:start}
+
+/* ── FORM ── */
+.fg{margin-bottom:13px}
+.fg label{display:block;font-size:12px;font-weight:600;margin-bottom:5px}
+.fg input,.fg select{
+  width:100%;padding:9px 11px;border:1.5px solid var(--border);border-radius:8px;
+  font-size:13.5px;font-family:var(--font);color:var(--t1);outline:none;
+  transition:border-color .2s,box-shadow .2s;
+}
+.fg input:focus,.fg select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(26,115,232,.1)}
+.fg input.err{border-color:var(--red)}
+.ferr{font-size:11px;color:var(--red);margin-top:4px;display:none}
+.pbtn{
+  width:100%;padding:10px;background:var(--accent);color:#fff;border:none;
+  border-radius:8px;font-size:13.5px;font-weight:600;cursor:pointer;
+  font-family:var(--font);transition:background .2s,transform .15s;margin-top:3px;
+}
+.pbtn:hover:not(:disabled){background:#1558b8;transform:translateY(-1px)}
+.pbtn:disabled{opacity:.65;cursor:not-allowed;transform:none}
+
+/* ── SEARCH ── */
+.srchwrap{position:relative;margin-bottom:12px}
+.srchwrap input{
+  width:100%;padding:8px 34px 8px 11px;border:1.5px solid var(--border);
+  border-radius:8px;font-size:13.5px;font-family:var(--font);outline:none;
+  transition:border-color .2s,box-shadow .2s;
+}
+.srchwrap input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(26,115,232,.1)}
+.srchico{
+  position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  color:var(--t3);pointer-events:none;font-size:14px;
+}
+
+/* ── TABLE ── */
+.twrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+thead tr{background:var(--gray-lt)}
+th{
+  padding:9px 13px;text-align:left;font-size:11px;font-weight:700;
+  color:var(--t2);text-transform:uppercase;letter-spacing:.6px;white-space:nowrap;
+}
+td{
+  padding:11px 13px;border-bottom:1px solid var(--border);
+  font-size:13.5px;color:var(--t1);vertical-align:middle;
+}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:#fafbfc}
+.erow td{text-align:center;padding:44px 20px;color:var(--t3);font-size:13px}
+
+/* ── BADGE ── */
+.badge{display:inline-block;padding:4px 10px;border-radius:20px;font-size:11.5px;font-weight:700}
+.badge.high{background:var(--green-lt);color:var(--green)}
+.badge.medium{background:var(--amber-lt);color:var(--amber)}
+.badge.low{background:var(--red-lt);color:var(--red)}
+.badge.out{background:var(--gray-lt);color:var(--t3)}
+
+/* ── ACTION BUTTONS ── */
+.acell{display:flex;gap:5px}
+.bsm{
+  padding:5px 10px;border:none;border-radius:6px;font-size:11.5px;
+  font-weight:600;cursor:pointer;font-family:var(--font);transition:all .15s;
+}
+.bedit{background:var(--accent-lt);color:var(--accent)}
+.bdel{background:var(--red-lt);color:var(--red)}
+.bedit:hover{background:#cce0fc}
+.bdel:hover{background:#fecaca}
+
+/* ── COLOR DOT ── */
+.cdot{
+  width:15px;height:15px;border-radius:4px;border:1.5px solid var(--border);
+  display:inline-block;vertical-align:middle;margin-right:7px;
+}
+.cdot.hitam{background:#111}
+.cdot.putih{background:#fff}
+.cdot.kayu{background:linear-gradient(135deg,#8b6f47,#c19a6b)}
+.cdot.chrome{background:linear-gradient(135deg,#bbb,#eee,#aaa)}
+
+/* ── MODAL ── */
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{transform:translateY(10px);opacity:0}to{transform:translateY(0);opacity:1}}
+.moverlay{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);
+  z-index:500;align-items:center;justify-content:center;padding:20px;
+  animation:fadeIn .2s ease;
+}
+.moverlay.active{display:flex}
+.mbox{
+  background:var(--surface);border-radius:16px;width:100%;max-width:430px;
+  padding:26px;box-shadow:0 20px 60px rgba(0,0,0,.2);animation:slideUp .2s ease;
+}
+.mhd{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.mhd h3{font-size:17px;font-weight:700}
+.mclose{
+  background:var(--gray-lt);border:none;width:31px;height:31px;border-radius:50%;
+  font-size:18px;cursor:pointer;color:var(--t2);display:grid;place-items:center;
+  transition:background .15s;
+}
+.mclose:hover{background:var(--border)}
+
+/* ── TOAST ── */
+.toast{
+  position:fixed;bottom:22px;right:22px;padding:11px 16px;border-radius:10px;
+  font-size:13.5px;font-weight:600;color:#fff;z-index:9999;
+  transform:translateY(60px);opacity:0;transition:all .3s ease;pointer-events:none;
+  max-width:300px;
+}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success{background:var(--green)}
+.toast.error{background:var(--red)}
+
+/* ── RESPONSIVE ── */
+@media(max-width:1100px){
+  .srow{grid-template-columns:repeat(2,1fr)}
+  .igrid{grid-template-columns:1fr}
+  .igrid .card:first-child{position:relative!important;top:auto!important}
+}
+@media(max-width:768px){
+  :root{--nav:0px}
+  .sidebar{display:none}
+  .main{margin-left:0}
+  .srow{grid-template-columns:1fr 1fr}
+  .topbar,.page{padding-left:14px;padding-right:14px}
+}
+</style>
 </head>
 <body>
-    <div id="loginBox" style="margin-bottom:20px; padding:15px; background:#fff; border-radius:10px;">
-  <input type="email" id="email" placeholder="Email">
-  <input type="password" id="password" placeholder="Password">
-  <button onclick="login(email.value, password.value)">Login</button>
-  <button onclick="logout()">Logout</button>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen">
+  <div class="lcard">
+    <div class="llogo">
+      <div class="lmark">🖼️</div>
+      <div><div class="lname">Srupa Labs</div><div class="lsub">Inventory System</div></div>
+    </div>
+    <h2>Masuk ke Akun</h2>
+    <p>Login dengan akun Firebase yang terdaftar untuk mengakses sistem inventaris.</p>
+    <div class="lf">
+      <label>Email</label>
+      <input type="email" id="lEmail" placeholder="email@example.com" autocomplete="email">
+    </div>
+    <div class="lf">
+      <label>Password</label>
+      <input type="password" id="lPass" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="lbtn" id="lBtn">Masuk</button>
+    <div class="lerr" id="lErr"></div>
+  </div>
 </div>
-    <div class="container">
-        <div class="header">
-            <h1>📦 Inventory Management</h1>
-            <p>Sistem manajemen stok poster dan frame Srupa Labs</p>
+
+<!-- APP SHELL -->
+<div id="appShell">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="slogo">
+      <div class="smark">🖼️</div>
+      <div><div class="sname">Srupa Labs</div><div class="ssub">Inventory</div></div>
+    </div>
+    <div class="nsec">
+      <div class="nseclbl">Menu</div>
+      <button class="nitem active" onclick="goPage('dashboard',this)"><span class="nico">📊</span>Dashboard</button>
+      <button class="nitem" onclick="goPage('inventory',this)"><span class="nico">📦</span>Inventaris</button>
+    </div>
+    <div class="nsec">
+      <div class="nseclbl">Kategori</div>
+      <button class="nitem" onclick="goPage('inventory',this);goTab('posters')"><span class="nico">🖼️</span>Poster</button>
+      <button class="nitem" onclick="goPage('inventory',this);goTab('frames')">
+        <span class="nico">🪟</span>Frame
+        <span class="nbadge" id="navBadge" style="display:none">!</span>
+      </button>
+    </div>
+    <div class="sfooter">
+      <div class="urow">
+        <div class="uavatar" id="uAvatar">A</div>
+        <div class="uinfo">
+          <div class="uemail" id="uEmail">—</div>
+          <div class="urole">Admin</div>
         </div>
+        <button class="logoutbtn" onclick="doLogout()" title="Keluar">⏏</button>
+      </div>
+    </div>
+  </aside>
 
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-value" id="totalPosters">0</div>
-                <div class="stat-label">Total Item Poster</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="totalFrames">0</div>
-                <div class="stat-label">Total Item Frame</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="lowStockCount">0</div>
-                <div class="stat-label">Stok Menipis (≤5)</div>
-            </div>
+  <!-- Main -->
+  <div class="main">
+    <header class="topbar">
+      <div>
+        <div class="ttitle" id="topTitle">Dashboard</div>
+        <div class="tsub">Srupa Labs Inventory System</div>
+      </div>
+      <div class="fbstat connecting" id="fbStat">
+        <span class="fdot pulse"></span>
+        <span id="fbTxt">Menghubungkan</span>
+      </div>
+    </header>
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="srow">
+        <div class="scard"><div class="sico blue">🖼️</div><div><div class="sval" id="sPoster">0</div><div class="slbl">Total Poster</div></div></div>
+        <div class="scard"><div class="sico green">🪟</div><div><div class="sval" id="sFrame">0</div><div class="slbl">Total Frame</div></div></div>
+        <div class="scard"><div class="sico amber">⚠️</div><div><div class="sval" id="sLow">0</div><div class="slbl">Stok Menipis (≤5)</div></div></div>
+        <div class="scard"><div class="sico red">🚫</div><div><div class="sval" id="sOut">0</div><div class="slbl">Stok Habis</div></div></div>
+      </div>
+
+      <div class="card" style="margin-bottom:18px">
+        <div class="chd"><div class="ctitle">⚠️ Stok Menipis / Habis</div></div>
+        <div class="twrap">
+          <table>
+            <thead><tr><th>Item</th><th>Kategori</th><th>Ukuran</th><th>Stok</th><th>Status</th></tr></thead>
+            <tbody id="tbLow"><tr class="erow"><td colspan="5">Semua stok dalam kondisi baik ✅</td></tr></tbody>
+          </table>
         </div>
+      </div>
 
-        <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('posters')">🖼️ Poster</button>
-            <button class="tab-btn" onclick="switchTab('frames')">🖼️ Frame</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+        <div class="card">
+          <div class="chd"><div class="ctitle">Poster Terbaru</div></div>
+          <div class="twrap"><table>
+            <thead><tr><th>Nama</th><th>Ukuran</th><th>Stok</th></tr></thead>
+            <tbody id="tbRcP"><tr class="erow"><td colspan="3">Belum ada data</td></tr></tbody>
+          </table></div>
         </div>
-
-        <!-- POSTER TAB -->
-        <div id="posters" class="tab-content active">
-            <div class="inventory-grid">
-                <div class="input-card">
-                    <h2>Tambah Poster Baru</h2>
-                    <form id="posterForm">
-                        <div class="form-group">
-                            <label>Nama Poster</label>
-                            <input type="text" id="posterName" placeholder="Contoh: Sunset Beach" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Ukuran</label>
-                            <select id="posterSize" required>
-                                <option value="">Pilih Ukuran</option>
-                                <option value="20x30">20 × 30 cm</option>
-                                <option value="30x40">30 × 40 cm</option>
-                                <option value="40x60">40 × 60 cm</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Jumlah Stok</label>
-                            <input type="number" id="posterStock" placeholder="0" min="0" required>
-                        </div>
-                        <button type="submit" class="submit-btn">➕ Tambah Poster</button>
-                    </form>
-                </div>
-
-                <div class="inventory-list">
-                    <h2>Daftar Poster</h2>
-                    <div class="search-bar">
-                        <input type="text" id="posterSearch" placeholder="🔍 Cari poster...">
-                        <span class="search-icon">🔍</span>
-                    </div>
-                    <div class="table-container">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Nama Poster</th>
-                                    <th>Ukuran</th>
-                                    <th>Stok</th>
-                                    <th>Status</th>
-                                    <th>Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody id="posterTableBody">
-                                <tr>
-                                    <td colspan="5" class="empty-state">Belum ada data poster</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+        <div class="card">
+          <div class="chd"><div class="ctitle">Frame Terbaru</div></div>
+          <div class="twrap"><table>
+            <thead><tr><th>Warna</th><th>Ukuran</th><th>Stok</th></tr></thead>
+            <tbody id="tbRcF"><tr class="erow"><td colspan="3">Belum ada data</td></tr></tbody>
+          </table></div>
         </div>
-
-        <!-- FRAME TAB -->
-        <div id="frames" class="tab-content">
-            <div class="inventory-grid">
-                <div class="input-card">
-                    <h2>Tambah Frame</h2>
-                    <form id="frameForm">
-                        <div class="form-group">
-                            <label>Warna Frame</label>
-                            <select id="frameColor" required>
-                                <option value="">Pilih Warna</option>
-                                <option value="Hitam">Hitam</option>
-                                <option value="Putih">Putih</option>
-                                <option value="Kayu">Kayu</option>
-                                <option value="Chrome">Chrome</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Ukuran Frame</label>
-                            <select id="frameSize" required>
-                                <option value="">Pilih Ukuran</option>
-                                <option value="20x20">20 × 20 cm</option>
-                                <option value="20x30">20 × 30 cm</option>
-                                <option value="30x30">30 × 30 cm</option>
-                                <option value="30x40">30 × 40 cm</option>
-                                <option value="40x60">40 × 60 cm</option>
-                                <option value="50x70">50 × 70 cm</option>
-                                <option value="60x80">60 × 80 cm</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Jumlah Stok</label>
-                            <input type="number" id="frameStock" placeholder="0" min="0" required>
-                        </div>
-                        <button type="submit" class="submit-btn">➕ Tambah Frame</button>
-                    </form>
-                </div>
-
-                <div class="inventory-list">
-                    <h2>Daftar Frame</h2>
-                    <div class="search-bar">
-                        <input type="text" id="frameSearch" placeholder="🔍 Cari frame...">
-                        <span class="search-icon">🔍</span>
-                    </div>
-                    <div class="table-container">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Warna</th>
-                                    <th>Ukuran</th>
-                                    <th>Stok</th>
-                                    <th>Status</th>
-                                    <th>Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody id="frameTableBody">
-                                <tr>
-                                    <td colspan="5" class="empty-state">Belum ada data frame</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
+      </div>
     </div>
 
-    <!-- Edit Modal -->
-    <div id="editModal" class="modal">
-        <div class="modal-content">
-            <button class="close-modal" onclick="closeEditModal()">×</button>
-            <div class="modal-header">
-                <h3 id="editModalTitle">Edit Stok</h3>
+    <!-- INVENTORY -->
+    <div class="page" id="page-inventory">
+      <div class="itabs">
+        <button class="itab active" id="itabP" onclick="goTab('posters')">🖼️ Poster</button>
+        <button class="itab" id="itabF" onclick="goTab('frames')">🪟 Frame</button>
+      </div>
+
+      <!-- POSTER TAB -->
+      <div id="tsec-posters">
+        <div class="igrid">
+          <div class="card" style="position:sticky;top:72px">
+            <div class="chd"><div class="ctitle">Tambah Poster</div></div>
+            <div class="cbody">
+              <form id="fPoster" novalidate>
+                <div class="fg"><label>Nama Poster</label>
+                  <input type="text" id="pName" placeholder="Contoh: Sunset Beach" maxlength="100" autocomplete="off">
+                  <div class="ferr" id="pNameE"></div></div>
+                <div class="fg"><label>Ukuran</label>
+                  <select id="pSize">
+                    <option value="">Pilih Ukuran</option>
+                    <option value="20x30">20 × 30 cm</option>
+                    <option value="30x40">30 × 40 cm</option>
+                    <option value="40x60">40 × 60 cm</option>
+                  </select>
+                  <div class="ferr" id="pSizeE"></div></div>
+                <div class="fg"><label>Jumlah Stok</label>
+                  <input type="number" id="pStock" placeholder="0" min="0" max="99999">
+                  <div class="ferr" id="pStockE"></div></div>
+                <button type="submit" class="pbtn">➕ Tambah Poster</button>
+              </form>
             </div>
-            <form id="editForm">
-                <div class="form-group">
-                    <label id="editItemLabel">Item</label>
-                    <input type="text" id="editItemName" readonly>
-                </div>
-                <div class="form-group">
-                    <label>Jumlah Stok Baru</label>
-                    <input type="number" id="editStock" min="0" required>
-                </div>
-                <button type="submit" class="submit-btn">💾 Simpan Perubahan</button>
-            </form>
+          </div>
+          <div class="card">
+            <div class="chd"><div class="ctitle">Daftar Poster</div></div>
+            <div class="cbody" style="padding:14px 14px 0">
+              <div class="srchwrap">
+                <input type="text" id="pSearch" placeholder="Cari poster..." maxlength="100">
+                <span class="srchico">🔍</span>
+              </div>
+            </div>
+            <div class="twrap">
+              <table>
+                <thead><tr><th>Nama Poster</th><th>Ukuran</th><th>Stok</th><th>Status</th><th>Aksi</th></tr></thead>
+                <tbody id="tbPoster"><tr class="erow"><td colspan="5">Memuat data...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
         </div>
+      </div>
+
+      <!-- FRAME TAB -->
+      <div id="tsec-frames" style="display:none">
+        <div class="igrid">
+          <div class="card" style="position:sticky;top:72px">
+            <div class="chd"><div class="ctitle">Tambah Frame</div></div>
+            <div class="cbody">
+              <form id="fFrame" novalidate>
+                <div class="fg"><label>Warna Frame</label>
+                  <select id="fColor">
+                    <option value="">Pilih Warna</option>
+                    <option value="Hitam">Hitam</option>
+                    <option value="Putih">Putih</option>
+                    <option value="Kayu">Kayu</option>
+                    <option value="Chrome">Chrome</option>
+                  </select>
+                  <div class="ferr" id="fColorE"></div></div>
+                <div class="fg"><label>Ukuran Frame</label>
+                  <select id="fSize">
+                    <option value="">Pilih Ukuran</option>
+                    <option value="20x20">20 × 20 cm</option>
+                    <option value="20x30">20 × 30 cm</option>
+                    <option value="30x30">30 × 30 cm</option>
+                    <option value="30x40">30 × 40 cm</option>
+                    <option value="40x60">40 × 60 cm</option>
+                    <option value="50x70">50 × 70 cm</option>
+                    <option value="60x80">60 × 80 cm</option>
+                  </select>
+                  <div class="ferr" id="fSizeE"></div></div>
+                <div class="fg"><label>Jumlah Stok</label>
+                  <input type="number" id="fStock" placeholder="0" min="0" max="99999">
+                  <div class="ferr" id="fStockE"></div></div>
+                <button type="submit" class="pbtn">➕ Tambah Frame</button>
+              </form>
+            </div>
+          </div>
+          <div class="card">
+            <div class="chd"><div class="ctitle">Daftar Frame</div></div>
+            <div class="cbody" style="padding:14px 14px 0">
+              <div class="srchwrap">
+                <input type="text" id="fSearch" placeholder="Cari frame..." maxlength="100">
+                <span class="srchico">🔍</span>
+              </div>
+            </div>
+            <div class="twrap">
+              <table>
+                <thead><tr><th>Warna</th><th>Ukuran</th><th>Stok</th><th>Status</th><th>Aksi</th></tr></thead>
+                <tbody id="tbFrame"><tr class="erow"><td colspan="5">Memuat data...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
+  </div>
+</div>
 
-    <script>
-        // =============================================
-        // STATE
-        // =============================================
-        let inventory = { posters: [], frames: [] };
-        let editingItem = null;
-        let editingType = null;
+<!-- Edit Modal -->
+<div class="moverlay" id="editModal">
+  <div class="mbox">
+    <div class="mhd">
+      <h3 id="mTitle">Edit Stok</h3>
+      <button class="mclose" onclick="closeEdit()">×</button>
+    </div>
+    <form id="fEdit" novalidate>
+      <div class="fg">
+        <label id="mLabel">Item</label>
+        <input type="text" id="mItem" readonly style="background:var(--gray-lt)">
+      </div>
+      <div class="fg">
+        <label>Stok Baru</label>
+        <input type="number" id="mStock" min="0" max="99999">
+        <div class="ferr" id="mStockE"></div>
+      </div>
+      <button type="submit" class="pbtn">💾 Simpan Perubahan</button>
+    </form>
+  </div>
+</div>
 
-        // =============================================
-        // FIREBASE HELPERS (tersedia setelah firebaseReady)
-        // =============================================
-        async function saveToFirestore(type, item) {
-            const db = window.db;
-            const id = `${type}_${item.name || item.color}_${item.size}_${Date.now()}`.replace(/\s+/g, '_');
-            item.id = item.id || id;
-            await window.fsSetDoc(window.fsDoc(db, `inventory_${type}`, item.id), item);
-        }
+<!-- Toast -->
+<div class="toast" id="toast"></div>
 
-        async function deleteFromFirestore(type, itemId) {
-            await window.fsDeleteDoc(window.fsDoc(window.db, `inventory_${type}`, itemId));
-        }
+<script>
+'use strict';
 
-        function listenToFirestore() {
-            // Real-time listener untuk posters
-            window.fsOnSnapshot(window.fsCollection(window.db, 'inventory_posters'), (snapshot) => {
-                inventory.posters = snapshot.docs.map(d => d.data());
-                renderPosters(document.getElementById('posterSearch').value);
-                updateStats();
-            });
+/* ─── CONSTANTS ─── */
+const OK_PSIZES = new Set(['20x30','30x40','40x60']);
+const OK_FSIZES = new Set(['20x20','20x30','30x30','30x40','40x60','50x70','60x80']);
+const OK_FCOLORS= new Set(['Hitam','Putih','Kayu','Chrome']);
+const MAX_STK   = 99999;
 
-            // Real-time listener untuk frames
-            window.fsOnSnapshot(window.fsCollection(window.db, 'inventory_frames'), (snapshot) => {
-                inventory.frames = snapshot.docs.map(d => d.data());
-                renderFrames(document.getElementById('frameSearch').value);
-                updateStats();
-            });
-        }
+/* ─── RATE LIMITER (20 ops / 60s) ─── */
+const rl = { ts:[], ok(){ const n=Date.now(); this.ts=this.ts.filter(t=>n-t<60000); if(this.ts.length>=20)return false; this.ts.push(n);return true; }};
 
-        // =============================================
-        // TAB SWITCHING
-        // =============================================
-        function switchTab(tab) {
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById(tab).classList.add('active');
-            event.target.classList.add('active');
-        }
+/* ─── STATE ─── */
+let inv = { posters:[], frames:[] };
+let editType=null, editId=null;
 
-        // =============================================
-        // UTILS
-        // =============================================
-        function getStockStatus(stock) {
-            if (stock === 0) return { class: 'out', text: 'Habis' };
-            if (stock <= 5) return { class: 'low', text: 'Menipis' };
-            if (stock <= 20) return { class: 'medium', text: 'Cukup' };
-            return { class: 'high', text: 'Banyak' };
-        }
+/* ─── UTILS ─── */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+const san = s => String(s).replace(/[<>"'`]/g,'').trim().slice(0,100);
+const $ = id => document.getElementById(id);
 
-        function updateStats() {
-            document.getElementById('totalPosters').textContent = inventory.posters.length;
-            document.getElementById('totalFrames').textContent = inventory.frames.length;
-            const lowStock = [
-                ...inventory.posters.filter(p => p.stock <= 5),
-                ...inventory.frames.filter(f => f.stock <= 5)
-            ].length;
-            document.getElementById('lowStockCount').textContent = lowStock;
-        }
+function badge(n){ if(n===0)return{c:'out',l:'Habis'}; if(n<=5)return{c:'low',l:'Menipis'}; if(n<=20)return{c:'medium',l:'Cukup'}; return{c:'high',l:'Banyak'}; }
 
-        function showSuccess(btn, message) {
-            const originalText = btn.textContent;
-            btn.textContent = message;
-            btn.style.background = 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)';
-            setTimeout(() => {
-                btn.textContent = originalText;
-                btn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-            }, 2000);
-        }
+let toastT=null;
+function toast(msg,type='success'){
+  const el=$('toast'); el.textContent=msg; el.className='toast '+type+' show';
+  clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('show'),3200);
+}
 
-        // =============================================
-        // RENDER
-        // =============================================
-        function renderPosters(searchQuery = '') {
-            const tbody = document.getElementById('posterTableBody');
-            let filtered = inventory.posters.filter(p =>
-                p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                p.size.includes(searchQuery)
-            );
+function ferr(id,msg){ const el=$(id); if(!el)return; el.textContent=msg; el.style.display=msg?'block':'none'; const inp=el.previousElementSibling; if(inp)inp.classList.toggle('err',!!msg); }
+function clerr(...ids){ ids.forEach(id=>ferr(id,'')); }
 
-            if (filtered.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Tidak ada data poster</td></tr>';
-                return;
-            }
+/* ─── FIREBASE STATUS ─── */
+function fbStat(state,txt){
+  const el=$('fbStat'), dot=el.querySelector('.fdot');
+  el.className='fbstat '+state;
+  dot.className='fdot'+(state==='connecting'?' pulse':'');
+  $('fbTxt').textContent=txt;
+}
 
-            tbody.innerHTML = filtered.map((poster) => {
-                const status = getStockStatus(poster.stock);
-                return `
-                    <tr>
-                        <td><strong>${poster.name}</strong></td>
-                        <td>${poster.size} cm</td>
-                        <td><strong>${poster.stock}</strong></td>
-                        <td><span class="stock-badge ${status.class}">${status.text}</span></td>
-                        <td class="action-btns">
-                            <button class="btn-edit" onclick="openEditModal('poster', '${poster.id}')">✏️ Edit</button>
-                            <button class="btn-delete" onclick="deleteItem('poster', '${poster.id}')">🗑️ Hapus</button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        }
+/* ─── FIRESTORE HELPERS ─── */
+function getDB(){ if(!window._fb?.db)throw new Error('Firebase belum siap.'); return window._fb; }
 
-        function renderFrames(searchQuery = '') {
-            const tbody = document.getElementById('frameTableBody');
-            let filtered = inventory.frames.filter(f =>
-                f.color.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                f.size.includes(searchQuery)
-            );
+async function fsSet(col,item){
+  if(!rl.ok())throw new Error('Terlalu banyak operasi. Tunggu sebentar.');
+  const {db,doc,setDoc}=getDB(); await setDoc(doc(db,col,item.id),item);
+}
+async function fsDel(col,id){
+  if(!rl.ok())throw new Error('Terlalu banyak operasi. Tunggu sebentar.');
+  const {db,doc,deleteDoc}=getDB(); await deleteDoc(doc(db,col,id));
+}
 
-            if (filtered.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Tidak ada data frame</td></tr>';
-                return;
-            }
+/* ─── START REALTIME LISTENERS (called after login) ─── */
+window._startListeners = function(){
+  if(window.firebaseInitError){ fbStat('error','Koneksi gagal'); toast('Firebase error: '+window.firebaseInitError,'error'); return; }
+  fbStat('connecting','Menghubungkan');
+  const {db,collection,onSnapshot}=getDB();
+  let pOk=false,fOk=false;
+  const chk=()=>{ if(pOk&&fOk)fbStat('connected','Terhubung'); };
 
-            tbody.innerHTML = filtered.map((frame) => {
-                const status = getStockStatus(frame.stock);
-                return `
-                    <tr>
-                        <td>
-                            <div class="color-preview ${frame.color.toLowerCase()}"></div>
-                            <strong>${frame.color}</strong>
-                        </td>
-                        <td>${frame.size} cm</td>
-                        <td><strong>${frame.stock}</strong></td>
-                        <td><span class="stock-badge ${status.class}">${status.text}</span></td>
-                        <td class="action-btns">
-                            <button class="btn-edit" onclick="openEditModal('frame', '${frame.id}')">✏️ Edit</button>
-                            <button class="btn-delete" onclick="deleteItem('frame', '${frame.id}')">🗑️ Hapus</button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        }
+  onSnapshot(collection(db,'inventory_posters'),
+    snap=>{ inv.posters=snap.docs.map(d=>d.data()); renderPosters($('pSearch').value); updateStats(); pOk=true; chk(); },
+    err=>{ fbStat('error','Terputus'); toast('Error posters: '+err.message,'error'); }
+  );
+  onSnapshot(collection(db,'inventory_frames'),
+    snap=>{ inv.frames=snap.docs.map(d=>d.data()); renderFrames($('fSearch').value); updateStats(); fOk=true; chk(); },
+    err=>{ fbStat('error','Terputus'); toast('Error frames: '+err.message,'error'); }
+  );
+};
 
-        // =============================================
-        // ADD POSTER
-        // =============================================
-        document.getElementById('posterForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const btn = this.querySelector('.submit-btn');
-            const name = document.getElementById('posterName').value.trim();
-            const size = document.getElementById('posterSize').value;
-            const stock = parseInt(document.getElementById('posterStock').value);
+/* ─── AUTH ─── */
+$('lBtn').onclick = async ()=>{
+  const btn=$('lBtn'), email=$('lEmail').value.trim(), pass=$('lPass').value, errEl=$('lErr');
+  errEl.style.display='none';
+  if(!email||!pass){ errEl.textContent='Email dan password wajib diisi.'; errEl.style.display='block'; return; }
+  btn.textContent='⏳ Masuk...'; btn.disabled=true;
+  try{ await window._login(email,pass); }
+  catch(e){
+    let m='Login gagal. Periksa email dan password.';
+    if(e.code==='auth/user-not-found') m='Email tidak terdaftar.';
+    if(e.code==='auth/wrong-password') m='Password salah.';
+    if(e.code==='auth/too-many-requests') m='Terlalu banyak percobaan. Coba lagi nanti.';
+    if(e.code==='auth/invalid-credential') m='Email atau password salah.';
+    errEl.textContent=m; errEl.style.display='block';
+  }
+  finally{ btn.textContent='Masuk'; btn.disabled=false; }
+};
+['lEmail','lPass'].forEach(id=>$(id).addEventListener('keydown',e=>{ if(e.key==='Enter') $('lBtn').click(); }));
 
-            const exists = inventory.posters.find(p => p.name === name && p.size === size);
-            if (exists) { alert('Poster dengan nama dan ukuran ini sudah ada!'); return; }
+function doLogout(){ if(confirm('Keluar dari sistem?')) window._logout(); }
 
-            const newItem = { name, size, stock, createdAt: new Date().toISOString() };
-            newItem.id = `poster_${name}_${size}_${Date.now()}`.replace(/\s+/g, '_');
+/* ─── NAVIGATION ─── */
+function goPage(name,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nitem').forEach(b=>b.classList.remove('active'));
+  $('page-'+name).classList.add('active');
+  if(el) el.classList.add('active');
+  $('topTitle').textContent = name==='dashboard'?'Dashboard':'Inventaris';
+}
 
-            btn.textContent = '⏳ Menyimpan...';
-            btn.disabled = true;
-            try {
-                await saveToFirestore('posters', newItem);
-                this.reset();
-                showSuccess(btn, '✅ Poster Ditambahkan!');
-            } catch (err) {
-                console.error(err);
-                alert('Gagal menyimpan ke Firestore: ' + err.message);
-            } finally {
-                btn.disabled = false;
-            }
-        });
+function goTab(name){
+  ['posters','frames'].forEach(n=>{ $('tsec-'+n).style.display=n===name?'block':'none'; });
+  $('itabP').classList.toggle('active', name==='posters');
+  $('itabF').classList.toggle('active', name==='frames');
+}
 
-        // =============================================
-        // ADD FRAME
-        // =============================================
-        document.getElementById('frameForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const btn = this.querySelector('.submit-btn');
-            const color = document.getElementById('frameColor').value;
-            const size = document.getElementById('frameSize').value;
-            const stock = parseInt(document.getElementById('frameStock').value);
+/* ─── STATS ─── */
+function updateStats(){
+  const all=[...inv.posters,...inv.frames];
+  const low=all.filter(i=>i.stock>0&&i.stock<=5).length;
+  const out=all.filter(i=>i.stock===0).length;
+  $('sPoster').textContent=inv.posters.length;
+  $('sFrame').textContent=inv.frames.length;
+  $('sLow').textContent=low;
+  $('sOut').textContent=out;
+  $('navBadge').style.display=inv.frames.filter(f=>f.stock<=5).length?'inline-block':'none';
+  renderLow(); renderRecent();
+}
 
-            const exists = inventory.frames.find(f => f.color === color && f.size === size);
-            if (exists) { alert('Frame dengan warna dan ukuran ini sudah ada!'); return; }
+function renderLow(){
+  const tb=$('tbLow');
+  const items=[
+    ...inv.posters.filter(p=>p.stock<=5).map(p=>({...p,cat:'Poster',lbl:p.name})),
+    ...inv.frames.filter(f=>f.stock<=5).map(f=>({...f,cat:'Frame',lbl:f.color}))
+  ];
+  if(!items.length){ tb.innerHTML='<tr class="erow"><td colspan="5">Semua stok dalam kondisi baik ✅</td></tr>'; return; }
+  tb.innerHTML=items.map(i=>{ const b=badge(i.stock); return `<tr><td><strong>${esc(i.lbl)}</strong></td><td>${esc(i.cat)}</td><td>${esc(i.size)} cm</td><td><strong>${i.stock}</strong></td><td><span class="badge ${b.c}">${b.l}</span></td></tr>`; }).join('');
+}
 
-            const newItem = { color, size, stock, createdAt: new Date().toISOString() };
-            newItem.id = `frame_${color}_${size}_${Date.now()}`.replace(/\s+/g, '_');
+function renderRecent(){
+  const rp=[...inv.posters].sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||'')).slice(0,5);
+  $('tbRcP').innerHTML=rp.length?rp.map(p=>{ const b=badge(p.stock); return `<tr><td><strong>${esc(p.name)}</strong></td><td>${esc(p.size)}</td><td><span class="badge ${b.c}">${p.stock}</span></td></tr>`; }).join(''):'<tr class="erow"><td colspan="3">Belum ada data</td></tr>';
+  const rf=[...inv.frames].sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||'')).slice(0,5);
+  $('tbRcF').innerHTML=rf.length?rf.map(f=>{ const b=badge(f.stock); return `<tr><td><span class="cdot ${esc(f.color.toLowerCase())}"></span><strong>${esc(f.color)}</strong></td><td>${esc(f.size)}</td><td><span class="badge ${b.c}">${f.stock}</span></td></tr>`; }).join(''):'<tr class="erow"><td colspan="3">Belum ada data</td></tr>';
+}
 
-            btn.textContent = '⏳ Menyimpan...';
-            btn.disabled = true;
-            try {
-                await saveToFirestore('frames', newItem);
-                this.reset();
-                showSuccess(btn, '✅ Frame Ditambahkan!');
-            } catch (err) {
-                console.error(err);
-                alert('Gagal menyimpan ke Firestore: ' + err.message);
-            } finally {
-                btn.disabled = false;
-            }
-        });
+/* ─── RENDER TABLES ─── */
+function renderPosters(q=''){
+  const tb=$('tbPoster'), ql=q.toLowerCase();
+  const list=inv.posters.filter(p=>p.name.toLowerCase().includes(ql)||p.size.includes(ql));
+  if(!list.length){ tb.innerHTML='<tr class="erow"><td colspan="5">Tidak ada data poster</td></tr>'; return; }
+  tb.innerHTML=list.map(p=>{ const b=badge(p.stock); return `<tr><td><strong>${esc(p.name)}</strong></td><td>${esc(p.size)} cm</td><td><strong>${p.stock}</strong></td><td><span class="badge ${b.c}">${b.l}</span></td><td class="acell"><button class="bsm bedit" onclick="openEdit('posters','${esc(p.id)}')">✏️ Edit</button><button class="bsm bdel" onclick="delItem('posters','${esc(p.id)}')">🗑️ Hapus</button></td></tr>`; }).join('');
+}
 
-        // =============================================
-        // EDIT MODAL
-        // =============================================
-        function openEditModal(type, itemId) {
-            editingType = type;
-            editingItem = itemId;
+function renderFrames(q=''){
+  const tb=$('tbFrame'), ql=q.toLowerCase();
+  const list=inv.frames.filter(f=>f.color.toLowerCase().includes(ql)||f.size.includes(ql));
+  if(!list.length){ tb.innerHTML='<tr class="erow"><td colspan="5">Tidak ada data frame</td></tr>'; return; }
+  tb.innerHTML=list.map(f=>{ const b=badge(f.stock); return `<tr><td><span class="cdot ${esc(f.color.toLowerCase())}"></span><strong>${esc(f.color)}</strong></td><td>${esc(f.size)} cm</td><td><strong>${f.stock}</strong></td><td><span class="badge ${b.c}">${b.l}</span></td><td class="acell"><button class="bsm bedit" onclick="openEdit('frames','${esc(f.id)}')">✏️ Edit</button><button class="bsm bdel" onclick="delItem('frames','${esc(f.id)}')">🗑️ Hapus</button></td></tr>`; }).join('');
+}
 
-            const modal = document.getElementById('editModal');
-            const title = document.getElementById('editModalTitle');
-            const label = document.getElementById('editItemLabel');
-            const itemName = document.getElementById('editItemName');
-            const stockInput = document.getElementById('editStock');
+/* ─── ADD POSTER ─── */
+$('fPoster').addEventListener('submit', async function(e){
+  e.preventDefault(); clerr('pNameE','pSizeE','pStockE');
+  const btn=this.querySelector('.pbtn');
+  const name=san($('pName').value), size=$('pSize').value, stock=parseInt($('pStock').value,10);
+  let ok=true;
+  if(name.length<2){ferr('pNameE','Nama minimal 2 karakter.');ok=false;}
+  if(!OK_PSIZES.has(size)){ferr('pSizeE','Pilih ukuran yang valid.');ok=false;}
+  if(isNaN(stock)||stock<0||stock>MAX_STK){ferr('pStockE','Stok harus 0–99999.');ok=false;}
+  if(!ok)return;
+  if(inv.posters.find(p=>p.name===name&&p.size===size)){ferr('pNameE','Poster dengan nama & ukuran ini sudah ada.');return;}
+  const orig=btn.textContent; btn.textContent='⏳ Menyimpan...'; btn.disabled=true;
+  const item={id:`poster_${name}_${size}_${Date.now()}`.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_-]/g,''),name,size,stock,createdAt:new Date().toISOString()};
+  try{ await fsSet('inventory_posters',item); this.reset(); btn.textContent=orig; toast('✅ Poster berhasil ditambahkan!'); }
+  catch(err){ btn.textContent=orig; toast('Gagal: '+err.message,'error'); }
+  finally{ btn.disabled=false; }
+});
 
-            if (type === 'poster') {
-                const item = inventory.posters.find(p => p.id === itemId);
-                title.textContent = 'Edit Stok Poster';
-                label.textContent = 'Nama Poster';
-                itemName.value = `${item.name} (${item.size} cm)`;
-                stockInput.value = item.stock;
-            } else if (type === 'frame') {
-                const item = inventory.frames.find(f => f.id === itemId);
-                title.textContent = 'Edit Stok Frame';
-                label.textContent = 'Frame';
-                itemName.value = `${item.color} ${item.size} cm`;
-                stockInput.value = item.stock;
-            }
+/* ─── ADD FRAME ─── */
+$('fFrame').addEventListener('submit', async function(e){
+  e.preventDefault(); clerr('fColorE','fSizeE','fStockE');
+  const btn=this.querySelector('.pbtn');
+  const color=$('fColor').value, size=$('fSize').value, stock=parseInt($('fStock').value,10);
+  let ok=true;
+  if(!OK_FCOLORS.has(color)){ferr('fColorE','Pilih warna yang valid.');ok=false;}
+  if(!OK_FSIZES.has(size)){ferr('fSizeE','Pilih ukuran yang valid.');ok=false;}
+  if(isNaN(stock)||stock<0||stock>MAX_STK){ferr('fStockE','Stok harus 0–99999.');ok=false;}
+  if(!ok)return;
+  if(inv.frames.find(f=>f.color===color&&f.size===size)){ferr('fColorE','Frame dengan warna & ukuran ini sudah ada.');return;}
+  const orig=btn.textContent; btn.textContent='⏳ Menyimpan...'; btn.disabled=true;
+  const item={id:`frame_${color}_${size}_${Date.now()}`.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_-]/g,''),color,size,stock,createdAt:new Date().toISOString()};
+  try{ await fsSet('inventory_frames',item); this.reset(); btn.textContent=orig; toast('✅ Frame berhasil ditambahkan!'); }
+  catch(err){ btn.textContent=orig; toast('Gagal: '+err.message,'error'); }
+  finally{ btn.disabled=false; }
+});
 
-            modal.classList.add('active');
-        }
+/* ─── EDIT ─── */
+function openEdit(col,id){
+  clerr('mStockE'); editType=col; editId=id;
+  if(col==='posters'){
+    const item=inv.posters.find(p=>p.id===id);
+    if(!item){toast('Item tidak ditemukan.','error');return;}
+    $('mTitle').textContent='Edit Stok Poster'; $('mLabel').textContent='Nama Poster';
+    $('mItem').value=`${item.name} (${item.size} cm)`; $('mStock').value=item.stock;
+  } else {
+    const item=inv.frames.find(f=>f.id===id);
+    if(!item){toast('Item tidak ditemukan.','error');return;}
+    $('mTitle').textContent='Edit Stok Frame'; $('mLabel').textContent='Frame';
+    $('mItem').value=`${item.color} — ${item.size} cm`; $('mStock').value=item.stock;
+  }
+  $('editModal').classList.add('active'); $('mStock').focus();
+}
 
-        function closeEditModal() {
-            document.getElementById('editModal').classList.remove('active');
-            editingItem = null;
-            editingType = null;
-        }
+function closeEdit(){ $('editModal').classList.remove('active'); editType=null; editId=null; }
 
-        document.getElementById('editForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const newStock = parseInt(document.getElementById('editStock').value);
-            const btn = this.querySelector('.submit-btn');
-            btn.textContent = '⏳ Menyimpan...';
-            btn.disabled = true;
+$('fEdit').addEventListener('submit', async function(e){
+  e.preventDefault(); clerr('mStockE');
+  const newStk=parseInt($('mStock').value,10);
+  if(isNaN(newStk)||newStk<0||newStk>MAX_STK){ferr('mStockE','Stok harus 0–99999.');return;}
+  const btn=this.querySelector('.pbtn'); btn.textContent='⏳ Menyimpan...'; btn.disabled=true;
+  try{
+    let item=editType==='posters'?inv.posters.find(p=>p.id===editId):inv.frames.find(f=>f.id===editId);
+    if(!item)throw new Error('Item tidak ditemukan.');
+    item.stock=newStk; await fsSet('inventory_'+editType,item);
+    closeEdit(); toast('✅ Stok berhasil diperbarui!');
+  }catch(err){ toast('Gagal: '+err.message,'error'); }
+  finally{ btn.disabled=false; btn.textContent='💾 Simpan Perubahan'; }
+});
 
-            try {
-                let item;
-                if (editingType === 'poster') {
-                    item = inventory.posters.find(p => p.id === editingItem);
-                } else {
-                    item = inventory.frames.find(f => f.id === editingItem);
-                }
-                item.stock = newStock;
-                await saveToFirestore(editingType === 'poster' ? 'posters' : 'frames', item);
-                closeEditModal();
-            } catch (err) {
-                console.error(err);
-                alert('Gagal update Firestore: ' + err.message);
-            } finally {
-                btn.disabled = false;
-                btn.textContent = '💾 Simpan Perubahan';
-            }
-        });
+/* ─── DELETE ─── */
+async function delItem(col,id){
+  if(!confirm('Yakin hapus item ini?'))return;
+  try{ await fsDel('inventory_'+col,id); toast('🗑️ Item berhasil dihapus.'); }
+  catch(err){ toast('Gagal menghapus: '+err.message,'error'); }
+}
 
-        // =============================================
-        // DELETE
-        // =============================================
-        async function deleteItem(type, itemId) {
-            if (!confirm('Yakin ingin menghapus item ini?')) return;
-            try {
-                await deleteFromFirestore(type === 'poster' ? 'posters' : 'frames', itemId);
-            } catch (err) {
-                console.error(err);
-                alert('Gagal menghapus dari Firestore: ' + err.message);
-            }
-        }
+/* ─── SEARCH ─── */
+$('pSearch').addEventListener('input',e=>renderPosters(e.target.value));
+$('fSearch').addEventListener('input',e=>renderFrames(e.target.value));
 
-        // =============================================
-        // SEARCH
-        // =============================================
-        document.getElementById('posterSearch').addEventListener('input', (e) => renderPosters(e.target.value));
-        document.getElementById('frameSearch').addEventListener('input', (e) => renderFrames(e.target.value));
-
-        // Close modal on outside click
-        document.getElementById('editModal').addEventListener('click', function(e) {
-            if (e.target.id === 'editModal') closeEditModal();
-        });
-
-        // =============================================
-        // INIT — tunggu Firebase siap lalu pasang listener
-        // =============================================
-        function initApp() {
-            if (window.firebaseReady) {
-                listenToFirestore();
-            } else {
-                document.addEventListener('firebaseReady', listenToFirestore);
-            }
-        }
-
-        initApp();
-    </script>
+/* ─── MODAL CLOSE ─── */
+$('editModal').addEventListener('click',e=>{ if(e.target.id==='editModal')closeEdit(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape')closeEdit(); });
+</script>
 </body>
 </html>
