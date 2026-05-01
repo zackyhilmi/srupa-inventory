@@ -653,7 +653,7 @@ tbody tr:hover{background:#fafbfc}
               <form id="fPoster" novalidate>
                 <div class="fg"><label>Nama Poster</label><input type="text" id="pName" placeholder="Contoh: Sunset Beach" maxlength="100" autocomplete="off"><div class="ferr" id="pNameE"></div></div>
                 <div class="fg"><label>Ukuran</label>
-                  <select id="pSize"><option value="">Pilih Ukuran</option><option value="20x30">20 × 30 cm</option><option value="30x40">30 × 40 cm</option><option value="40x60">40 × 60 cm</option></select>
+                  <select id="pSize"><option value="">Pilih Ukuran</option><option value="20x20">20 × 20 cm</option><option value="20x30">20 × 30 cm</option><option value="30x30">30 × 30 cm</option><option value="30x40">30 × 40 cm</option><option value="40x60">40 × 60 cm</option><option value="50x70">50 × 70 cm</option><option value="60x80">60 × 80 cm</option></select>
                   <div class="ferr" id="pSizeE"></div></div>
                 <div class="fg"><label>Jumlah Stok</label><input type="number" id="pStock" placeholder="0" min="0" max="99999"><div class="ferr" id="pStockE"></div></div>
                 <button type="submit" class="pbtn">➕ Tambah Poster</button>
@@ -1318,7 +1318,7 @@ $('fPoster').addEventListener('submit',async function(e){
   const name=san($('pName').value),size=$('pSize').value,stock=parseInt($('pStock').value,10);
   let ok=true;
   if(name.length<2){ferr('pNameE','Nama minimal 2 karakter.');ok=false;}
-  if(!OK_PSIZES.has(size)){ferr('pSizeE','Pilih ukuran.');ok=false;}
+  if(!OK_SIZES.has(size)){ferr('pSizeE','Pilih ukuran.');ok=false;}
   if(isNaN(stock)||stock<0||stock>MAX_STK){ferr('pStockE','Stok harus 0–99999.');ok=false;}
   if(!ok)return;
   if(inv.posters.find(p=>p.name===name&&p.size===size)){ferr('pNameE','Sudah ada.');return;}
@@ -1335,7 +1335,7 @@ $('fFrame').addEventListener('submit',async function(e){
   const color=$('fColor').value,size=$('fSize').value,stock=parseInt($('fStock').value,10);
   let ok=true;
   if(!OK_FCOLORS.has(color)){ferr('fColorE','Pilih warna.');ok=false;}
-  if(!OK_FSIZES.has(size)){ferr('fSizeE','Pilih ukuran.');ok=false;}
+  if(!OK_SIZES.has(size)){ferr('fSizeE','Pilih ukuran.');ok=false;}
   if(isNaN(stock)||stock<0||stock>MAX_STK){ferr('fStockE','Stok harus 0–99999.');ok=false;}
   if(!ok)return;
   if(inv.frames.find(f=>f.color===color&&f.size===size)){ferr('fColorE','Sudah ada.');return;}
