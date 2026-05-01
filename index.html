@@ -78,7 +78,7 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
 #loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;background:linear-gradient(135deg,#e8edf5,#d0daea)}
 .lcard{background:var(--surface);border-radius:20px;padding:40px 36px;width:100%;max-width:400px;box-shadow:0 8px 40px rgba(0,0,0,.12)}
 .llogo{display:flex;align-items:center;gap:12px;margin-bottom:28px}
-.lmark{width:42px;height:42px;background:var(--accent);border-radius:11px;display:grid;place-items:center;font-size:20px;flex-shrink:0}
+.lmark{width:44px;height:44px;display:grid;place-items:center;flex-shrink:0}
 .lname{font-size:17px;font-weight:700}.lsub{font-size:12px;color:var(--t2)}
 .lcard h2{font-size:21px;font-weight:700;margin-bottom:4px}
 .lcard>p{font-size:13px;color:var(--t2);margin-bottom:24px}
@@ -102,7 +102,7 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
 }
 .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:190}
 .slogo{padding:16px 16px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
-.smark{width:34px;height:34px;background:var(--accent);border-radius:8px;display:grid;place-items:center;font-size:17px;flex-shrink:0}
+.smark{width:34px;height:34px;display:grid;place-items:center;flex-shrink:0}
 .sname{font-size:15px;font-weight:700}.ssub{font-size:11px;color:var(--t2)}
 .nsec{padding:12px 10px 5px}
 .nseclbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);padding:0 8px;margin-bottom:4px}
@@ -339,7 +339,11 @@ tbody tr:hover{background:#fafbfc}
 <div id="loginScreen">
   <div class="lcard">
     <div class="llogo">
-      <div class="lmark">🖼️</div>
+      <div class="lmark">
+        <svg width="44" height="44" viewBox="0 0 847 638" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M649.88 8.81287C662.01 12.0029 673.96 16.0829 685.65 21.0229C731.83 40.5229 771.21 72.2329 799.53 112.733C830.07 156.433 846.22 208.433 846.22 263.103V606.323H650.23V263.103C650.23 260.473 650.1 257.963 649.87 255.533C646.55 221.023 620.88 206.433 609.42 201.593C597.15 196.403 565.52 187.363 536.87 215.253L337.17 409.633H579.41V606.323H0.0100021V0.212869H196.7V272.883L400.19 74.8129C439.36 36.6929 487.88 11.9929 540.5 3.39287C576.93 -2.54713 614.13 -0.657133 649.88 8.82287V8.81287Z" fill="#1F12D4"/>
+        </svg>
+      </div>
       <div><div class="lname">Srupa Labs</div><div class="lsub">Business Suite</div></div>
     </div>
     <h2>Masuk ke Akun</h2>
@@ -359,7 +363,11 @@ tbody tr:hover{background:#fafbfc}
   <!-- SIDEBAR -->
   <aside class="sidebar" id="sidebar">
     <div class="slogo">
-      <div class="smark">🖼️</div>
+      <div class="smark">
+        <svg width="32" height="32" viewBox="0 0 847 638" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M649.88 8.81287C662.01 12.0029 673.96 16.0829 685.65 21.0229C731.83 40.5229 771.21 72.2329 799.53 112.733C830.07 156.433 846.22 208.433 846.22 263.103V606.323H650.23V263.103C650.23 260.473 650.1 257.963 649.87 255.533C646.55 221.023 620.88 206.433 609.42 201.593C597.15 196.403 565.52 187.363 536.87 215.253L337.17 409.633H579.41V606.323H0.0100021V0.212869H196.7V272.883L400.19 74.8129C439.36 36.6929 487.88 11.9929 540.5 3.39287C576.93 -2.54713 614.13 -0.657133 649.88 8.82287V8.81287Z" fill="#1F12D4"/>
+        </svg>
+      </div>
       <div><div class="sname">Srupa Labs</div><div class="ssub">Business Suite</div></div>
     </div>
     <div class="nsec">
