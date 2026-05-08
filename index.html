@@ -332,6 +332,22 @@ tbody tr:hover{background:#fafbfc}
   .sval{font-size:16px}
   .sico{width:34px;height:34px;font-size:15px}
 }
+
+/* Size Tags for Grouped Posters */
+.size-tag{
+  display:inline-block;
+  padding:4px 10px;
+  margin:2px 4px 2px 0;
+  border-radius:6px;
+  font-size:12px;
+  font-weight:600;
+  white-space:nowrap;
+}
+.size-tag.high{background:#d4edda;color:#155724}
+.size-tag.medium{background:#fff3cd;color:#856404}
+.size-tag.low{background:#f8d7da;color:#721c24}
+.size-tag.out{background:#e8e9ea;color:#999}
+
 </style>
 </head>
 <body>
@@ -713,10 +729,20 @@ tbody tr:hover{background:#fafbfc}
           <div class="card">
             <div class="chd"><div class="ctitle">Daftar Poster</div></div>
             <div class="cbody" style="padding:12px 14px 0">
-              <div class="srchwrap"><input type="text" id="pSearch" placeholder="Cari poster..." maxlength="100"><span class="srchico">🔍</span></div>
+              <div class="srchwrap"><input type="text" id="pSearch" placeholder="Cari nama poster..." maxlength="100" oninput="renderPosterTable()"><span class="srchico">🔍</span></div>
+            </div>
+            <div id="batchDeleteBar" style="display:none;padding:12px 16px;background:#fff3cd;border-bottom:1px solid #ffc107;font-size:14px;font-weight:600">
+              <span id="batchCount">0 dipilih</span>
+              <button onclick="batchDeletePosters()" style="float:right;padding:6px 16px;background:#e74c3c;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600">🗑️ Hapus Terpilih</button>
             </div>
             <div class="twrap"><table>
-              <thead><tr><th>Nama Poster</th><th>Ukuran</th><th>Stok</th><th>Status</th><th>Aksi</th></tr></thead>
+              <thead><tr>
+                <th style="width:40px"><input type="checkbox" id="selectAllPosters" onchange="toggleSelectAllPosters()"></th>
+                <th>Nama Poster</th>
+                <th>Ukuran & Stok</th>
+                <th>Total Stok</th>
+                <th>Aksi</th>
+              </tr></thead>
               <tbody id="tbPoster"><tr class="erow"><td colspan="5">Memuat data...</td></tr></tbody>
             </table></div>
           </div>
@@ -1419,12 +1445,133 @@ function buildLapCharts(fo,fk){
 }
 
 /* ── INVENTORY RENDER ── */
+let selectedPosters = new Set();
+
+function renderPosterTable(){
+  const q = $('pSearch').value.toLowerCase();
+  renderPosters(q);
+  updateBatchBar();
+}
+
 function renderPosters(q=''){
   const tb=$('tbPoster'),ql=q.toLowerCase();
-  const list=inv.posters.filter(p=>p.name.toLowerCase().includes(ql)||p.size.includes(ql));
-  if(!list.length){tb.innerHTML='<tr class="erow"><td colspan="5">Tidak ada data poster</td></tr>';return;}
-  tb.innerHTML=list.map(p=>{const b=stockBadge(p.stock);return`<tr><td><strong>${esc(p.name)}</strong></td><td>${esc(p.size)} cm</td><td><strong>${p.stock}</strong></td><td><span class="badge ${b.c}">${b.l}</span></td><td class="acell"><button class="bsm bedit" onclick="openEdit('posters','${esc(p.id)}')">✏️</button><button class="bsm bdel" onclick="delItem('posters','${esc(p.id)}')">🗑️</button></td></tr>`;}).join('');
+  
+  // Group posters by name
+  const grouped = {};
+  inv.posters.forEach(p => {
+    if(p.name.toLowerCase().includes(ql)){
+      if(!grouped[p.name]) grouped[p.name] = [];
+      grouped[p.name].push(p);
+    }
+  });
+  
+  const groupNames = Object.keys(grouped);
+  if(!groupNames.length){
+    tb.innerHTML='<tr class="erow"><td colspan="5">Tidak ada data poster</td></tr>';
+    return;
+  }
+  
+  // Render grouped
+  tb.innerHTML = groupNames.map(name => {
+    const posters = grouped[name];
+    const totalStock = posters.reduce((sum, p) => sum + p.stock, 0);
+    const posterIds = posters.map(p => p.id).join(',');
+    const isChecked = posters.every(p => selectedPosters.has(p.id));
+    
+    // Build size display
+    const sizeDisplay = posters.map(p => {
+      const badge = stockBadge(p.stock);
+      return `<span class="size-tag ${badge.c}">${p.size} (${p.stock})</span>`;
+    }).join(' ');
+    
+    return `<tr>
+      <td><input type="checkbox" class="poster-check" data-ids="${posterIds}" ${isChecked?'checked':''} onchange="togglePosterSelect(this)"></td>
+      <td><strong>${esc(name)}</strong></td>
+      <td style="font-size:13px">${sizeDisplay}</td>
+      <td><strong>${totalStock}</strong></td>
+      <td class="acell">
+        <button class="bsm bedit" onclick="editPosterGroup('${esc(name)}')">✏️</button>
+        <button class="bsm bdel" onclick="deletePosterGroup('${esc(name)}')">🗑️ Hapus Semua</button>
+      </td>
+    </tr>`;
+  }).join('');
+  
+  // Update select all checkbox
+  $('selectAllPosters').checked = inv.posters.length > 0 && inv.posters.every(p => selectedPosters.has(p.id));
 }
+
+function togglePosterSelect(checkbox){
+  const ids = checkbox.dataset.ids.split(',');
+  if(checkbox.checked){
+    ids.forEach(id => selectedPosters.add(id));
+  }else{
+    ids.forEach(id => selectedPosters.delete(id));
+  }
+  updateBatchBar();
+}
+
+function toggleSelectAllPosters(){
+  const checked = $('selectAllPosters').checked;
+  if(checked){
+    inv.posters.forEach(p => selectedPosters.add(p.id));
+  }else{
+    selectedPosters.clear();
+  }
+  renderPosterTable();
+}
+
+function updateBatchBar(){
+  const count = selectedPosters.size;
+  const bar = $('batchDeleteBar');
+  if(count > 0){
+    bar.style.display = 'block';
+    $('batchCount').textContent = `${count} dipilih`;
+  }else{
+    bar.style.display = 'none';
+  }
+}
+
+async function batchDeletePosters(){
+  const count = selectedPosters.size;
+  if(count === 0) return;
+  
+  if(!confirm(`Hapus ${count} poster yang dipilih?`)) return;
+  
+  try{
+    for(const id of selectedPosters){
+      await fsDel('inventory_posters', id);
+    }
+    selectedPosters.clear();
+    toast(`✅ ${count} poster berhasil dihapus!`);
+  }catch(err){
+    toast('Gagal: ' + err.message, 'error');
+  }
+}
+
+async function deletePosterGroup(name){
+  const posters = inv.posters.filter(p => p.name === name);
+  if(!confirm(`Hapus semua ${posters.length} ukuran dari "${name}"?`)) return;
+  
+  try{
+    for(const p of posters){
+      await fsDel('inventory_posters', p.id);
+    }
+    toast(`✅ Poster "${name}" dihapus!`);
+  }catch(err){
+    toast('Gagal: ' + err.message, 'error');
+  }
+}
+
+function editPosterGroup(name){
+  const posters = inv.posters.filter(p => p.name === name);
+  if(posters.length === 1){
+    openEdit('posters', posters[0].id);
+  }else{
+    // TODO: implement multi-edit or show list to choose
+    alert(`Poster "${name}" punya ${posters.length} ukuran. Pilih ukuran mana yang mau diedit dari list.`);
+  }
+}
+
 function renderFrames(q=''){
   const tb=$('tbFrame'),ql=q.toLowerCase();
   const list=inv.frames.filter(f=>f.color.toLowerCase().includes(ql)||f.size.includes(ql));
@@ -1495,7 +1642,7 @@ async function delItem(col,id){
   catch(err){toast('Gagal: '+err.message,'error');}
 }
 
-$('pSearch').addEventListener('input',e=>renderPosters(e.target.value));
+$('pSearch').addEventListener('input',e=>renderPosterTable());
 $('fSearch').addEventListener('input',e=>renderFrames(e.target.value));
 
 // Modal close on overlay click or ESC
@@ -1551,6 +1698,12 @@ async function handleBulkUpload(e){
       // Skip header if ada
       if(rows.length>0 && (rows[0][0].toLowerCase().includes('nama')||rows[0][0].toLowerCase().includes('poster'))){
         rows.shift();
+      }
+      
+      // LIMIT 100 ROWS MAX
+      if(rows.length > 100){
+        toast(`⚠️ Maksimal 100 baris. File Anda punya ${rows.length} baris. Hanya 100 pertama yang akan diproses.`, 'error');
+        rows = rows.slice(0, 100);
       }
       
       let success=0,failed=0;
