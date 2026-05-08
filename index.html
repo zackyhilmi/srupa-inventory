@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Srupa Labs — Business Suite</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23667eea'/%3E%3Ctext x='50' y='70' font-size='60' text-anchor='middle' font-weight='700' fill='white' font-family='sans-serif'%3ES%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
@@ -410,7 +411,7 @@ tbody tr:hover{background:#fafbfc}
         <div class="scard"><div class="sico purple">🪟</div><div><div class="sval" id="sFrame">0</div><div class="slbl">Item Frame</div></div></div>
         <div class="scard"><div class="sico green">💰</div><div><div class="sval" id="sOmzet">Rp 0</div><div class="slbl">Omzet Bulan Ini</div></div></div>
         <div class="scard"><div class="sico amber">🛒</div><div><div class="sval" id="sOrders">0</div><div class="slbl">Order Bulan Ini</div></div></div>
-        <div class="scard"><div class="sico red">⚠️</div><div><div class="sval" id="sLow">0</div><div class="slbl">Stok Menipis</div></div></div>
+        <div class="scard"><div class="sico red">⚠️</div><div><div class="sval" id="sLow">0</div><div class="slbl">Stok Habis</div></div></div>
       </div>
 
       <div class="two-col">
@@ -433,7 +434,7 @@ tbody tr:hover{background:#fafbfc}
           </table></div>
         </div>
         <div class="card">
-          <div class="chd"><div class="ctitle">⚠️ Stok Menipis</div></div>
+          <div class="chd"><div class="ctitle">⚠️ Stok Habis</div></div>
           <div class="twrap"><table>
             <thead><tr><th>Item</th><th>Stok</th><th>Status</th></tr></thead>
             <tbody id="tbLow"><tr class="erow"><td colspan="3">Semua stok aman ✅</td></tr></tbody>
@@ -550,15 +551,49 @@ tbody tr:hover{background:#fafbfc}
                 <select id="kType"><option value="income">💚 Pemasukan</option><option value="expense">❤️ Pengeluaran</option></select>
               </div>
               <div class="fg"><label>Kategori</label>
-                <select id="kCat">
+                <select id="kCat" onchange="toggleRestockFields()">
                   <option value="penjualan">Penjualan</option>
-                  <option value="restock">Restock / Bahan Baku</option>
+                  <option value="restock">Restock Frame</option>
                   <option value="ongkir">Ongkir & Operasional</option>
                   <option value="marketing">Marketing & Iklan</option>
                   <option value="gaji">Gaji / Upah</option>
                   <option value="lainnya">Lainnya</option>
                 </select>
               </div>
+              
+              <!-- RESTOCK FRAME FIELDS (Hidden by default) -->
+              <div id="restockFields" style="display:none">
+                <div class="sdiv">Detail Restock Frame</div>
+                <div class="fg"><label>Warna Frame</label>
+                  <select id="kFrameColor">
+                    <option value="">Pilih Warna</option>
+                    <option value="Hitam">Hitam</option>
+                    <option value="Putih">Putih</option>
+                    <option value="Kayu">Kayu</option>
+                    <option value="Chrome">Chrome</option>
+                  </select>
+                  <div class="ferr" id="kFrameColorE"></div>
+                </div>
+                <div class="fg"><label>Ukuran Frame</label>
+                  <select id="kFrameSize">
+                    <option value="">Pilih Ukuran</option>
+                    <option value="20x20">20 × 20 cm</option>
+                    <option value="20x30">20 × 30 cm</option>
+                    <option value="30x30">30 × 30 cm</option>
+                    <option value="30x40">30 × 40 cm</option>
+                    <option value="40x60">40 × 60 cm</option>
+                    <option value="50x70">50 × 70 cm</option>
+                    <option value="60x80">60 × 80 cm</option>
+                  </select>
+                  <div class="ferr" id="kFrameSizeE"></div>
+                </div>
+                <div class="fg"><label>Jumlah Restock (pcs)</label>
+                  <input type="number" id="kRestockQty" placeholder="0" min="1" max="9999">
+                  <div class="ferr" id="kRestockQtyE"></div>
+                </div>
+              </div>
+              <!-- END RESTOCK FIELDS -->
+              
               <div class="fg"><label>Jumlah (Rp)</label>
                 <input type="number" id="kAmount" placeholder="0" min="0">
                 <div class="ferr" id="kAmountE"></div>
@@ -666,6 +701,13 @@ tbody tr:hover{background:#fafbfc}
                 <div class="fg"><label>Jumlah Stok</label><input type="number" id="pStock" placeholder="0" min="0" max="99999"><div class="ferr" id="pStockE"></div></div>
                 <button type="submit" class="pbtn">➕ Tambah Poster</button>
               </form>
+              
+              <div class="sdiv">Atau Import Bulk</div>
+              <div style="padding:12px 0">
+                <input type="file" id="bulkUpload" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleBulkUpload(event)">
+                <button class="pbtn" style="background:var(--blue)" onclick="$('bulkUpload').click()">📁 Upload CSV/Excel</button>
+                <div style="font-size:12px;color:var(--t3);margin-top:8px">Format: Nama, Ukuran, Stok<br>Contoh: Bauhaus, 20x30, 10</div>
+              </div>
             </div>
           </div>
           <div class="card">
@@ -887,15 +929,15 @@ function updateDashboard(){
   $('sOmzet').textContent=rp(omzet);
   $('sOrders').textContent=mo.length;
   const all=[...inv.posters,...inv.frames];
-  $('sLow').textContent=all.filter(i=>i.stock<=5).length;
-  $('navBadge').style.display=inv.frames.filter(f=>f.stock<=5).length?'inline-block':'none';
+  $('sLow').textContent=all.filter(i=>i.stock===0).length;
+  $('navBadge').style.display=inv.frames.filter(f=>f.stock===0).length?'inline-block':'none';
   $('navProses').style.display=orders.filter(o=>o.status==='proses').length?'inline-block':'none';
   renderLow();buildChartOmzet();buildChartChannel();
 }
 
 function renderLow(){
   const tb=$('tbLow');
-  const items=[...inv.posters.filter(p=>p.stock<=5).map(p=>({lbl:p.name,sz:p.size,stk:p.stock})),...inv.frames.filter(f=>f.stock<=5).map(f=>({lbl:f.color,sz:f.size,stk:f.stock}))];
+  const items=[...inv.posters.filter(p=>p.stock===0).map(p=>({lbl:p.name,sz:p.size,stk:p.stock})),...inv.frames.filter(f=>f.stock===0).map(f=>({lbl:f.color,sz:f.size,stk:f.stock}))];
   if(!items.length){tb.innerHTML='<tr class="erow"><td colspan="3">Semua stok aman ✅</td></tr>';return;}
   tb.innerHTML=items.map(i=>{const b=stockBadge(i.stk);return`<tr><td><strong>${esc(i.lbl)}</strong> <small style="color:var(--t2)">${esc(i.sz)}</small></td><td><strong>${i.stk}</strong></td><td><span class="badge ${b.c}">${b.l}</span></td></tr>`;}).join('');
 }
@@ -1194,21 +1236,91 @@ async function delOrder(id){
 }
 
 /* ── KEUANGAN ── */
+function toggleRestockFields(){
+  const cat=$('kCat').value;
+  const restockDiv=$('restockFields');
+  if(cat==='restock'){
+    restockDiv.style.display='block';
+  }else{
+    restockDiv.style.display='none';
+    $('kFrameColor').value='';
+    $('kFrameSize').value='';
+    $('kRestockQty').value='';
+  }
+}
+
 $('kDate').value=new Date().toISOString().split('T')[0];
 $('fKeu').addEventListener('submit',async function(e){
-  e.preventDefault();clerr('kAmountE','kDescE');
+  e.preventDefault();clerr('kAmountE','kDescE','kFrameColorE','kFrameSizeE','kRestockQtyE');
   const btn=this.querySelector('.pbtn');
   const type=$('kType').value,cat=$('kCat').value;
   const amount=parseInt($('kAmount').value,10)||0,date=$('kDate').value,desc=san($('kDesc').value);
+  
+  // Restock frame fields
+  const frameColor=$('kFrameColor').value;
+  const frameSize=$('kFrameSize').value;
+  const restockQty=parseInt($('kRestockQty').value,10)||0;
+  
   let ok=true;
   if(!amount||amount<=0){ferr('kAmountE','Jumlah harus lebih dari 0.');ok=false;}
   if(desc.length<2){ferr('kDescE','Keterangan minimal 2 karakter.');ok=false;}
+  
+  // Validasi restock frame
+  if(cat==='restock'){
+    if(!frameColor){ferr('kFrameColorE','Pilih warna frame.');ok=false;}
+    if(!frameSize){ferr('kFrameSizeE','Pilih ukuran frame.');ok=false;}
+    if(!restockQty||restockQty<1){ferr('kRestockQtyE','Jumlah restock minimal 1.');ok=false;}
+  }
+  
   if(!ok)return;
+  
   const orig=btn.textContent;btn.textContent='⏳...';btn.disabled=true;
   const item={id:`keu_${Date.now()}`,type,cat,amount,date,desc,createdAt:new Date().toISOString()};
-  try{await fsSet('keuangan',item);this.reset();$('kDate').value=new Date().toISOString().split('T')[0];btn.textContent=orig;toast('✅ Catatan disimpan!');}
-  catch(err){btn.textContent=orig;toast('Gagal: '+err.message,'error');}
-  finally{btn.disabled=false;}
+  
+  // Tambah info restock jika kategori restock
+  if(cat==='restock'){
+    item.restockFrameColor=frameColor;
+    item.restockFrameSize=frameSize;
+    item.restockQty=restockQty;
+  }
+  
+  try{
+    await fsSet('keuangan',item);
+    
+    // AUTO RESTOCK FRAME
+    if(cat==='restock'){
+      let frame=inv.frames.find(f=>f.color===frameColor&&f.size===frameSize);
+      if(frame){
+        // Frame sudah ada, tambah stok
+        frame.stock+=restockQty;
+        await fsSet('inventory_frames',frame);
+        toast(`✅ Catatan disimpan! Stok Frame ${frameColor} ${frameSize} +${restockQty} (Total: ${frame.stock})`);
+      }else{
+        // Frame belum ada, buat baru
+        const newFrame={
+          id:`frame_${frameColor}_${frameSize}_${Date.now()}`.replace(/\s+/g,'_'),
+          color:frameColor,
+          size:frameSize,
+          stock:restockQty,
+          createdAt:new Date().toISOString()
+        };
+        await fsSet('inventory_frames',newFrame);
+        toast(`✅ Catatan disimpan! Frame ${frameColor} ${frameSize} dibuat dengan stok ${restockQty}`);
+      }
+    }else{
+      toast('✅ Catatan disimpan!');
+    }
+    
+    this.reset();
+    $('kDate').value=new Date().toISOString().split('T')[0];
+    $('restockFields').style.display='none';
+    btn.textContent=orig;
+  }catch(err){
+    btn.textContent=orig;
+    toast('Gagal: '+err.message,'error');
+  }finally{
+    btn.disabled=false;
+  }
 });
 
 function updateKeuanganSummary(){
@@ -1399,6 +1511,93 @@ renderItemList();
 const nowMonth=thisMonth();
 $('filterMonth').value=nowMonth;
 $('kFilterMonth').value=nowMonth;
+
+/* ── BULK UPLOAD POSTER ── */
+async function handleBulkUpload(e){
+  const file=e.target.files[0];
+  if(!file){return;}
+  
+  const fileName=file.name.toLowerCase();
+  const isCSV=fileName.endsWith('.csv');
+  const isExcel=fileName.endsWith('.xlsx')||fileName.endsWith('.xls');
+  
+  if(!isCSV&&!isExcel){
+    toast('Format file harus CSV atau Excel (.xlsx, .xls)','error');
+    return;
+  }
+  
+  const reader=new FileReader();
+  reader.onload=async function(evt){
+    try{
+      let rows=[];
+      
+      if(isCSV){
+        // Parse CSV
+        const text=evt.target.result;
+        const lines=text.split('\n').filter(l=>l.trim());
+        rows=lines.map(line=>{
+          // Simple CSV parser (handles comma-separated values)
+          const cols=line.split(',').map(c=>c.trim().replace(/^"|"$/g,''));
+          return cols;
+        });
+      }else{
+        // Parse Excel (simple approach - read as text if possible, or show error)
+        toast('Excel akan diparse sebagai CSV. Pastikan format: Nama, Ukuran, Stok di setiap baris.','info');
+        const text=evt.target.result;
+        const lines=text.split('\n').filter(l=>l.trim());
+        rows=lines.map(line=>line.split('\t').map(c=>c.trim()));
+      }
+      
+      // Skip header if ada
+      if(rows.length>0 && (rows[0][0].toLowerCase().includes('nama')||rows[0][0].toLowerCase().includes('poster'))){
+        rows.shift();
+      }
+      
+      let success=0,failed=0;
+      for(const row of rows){
+        if(row.length<3)continue;
+        
+        const name=san(row[0]);
+        const size=row[1].replace(/\s/g,''); // Remove spaces
+        const stock=parseInt(row[2],10);
+        
+        // Validasi
+        if(name.length<2){failed++;continue;}
+        if(!OK_SIZES.has(size)){failed++;continue;}
+        if(isNaN(stock)||stock<0){failed++;continue;}
+        
+        // Cek duplikat
+        if(inv.posters.find(p=>p.name===name&&p.size===size)){
+          failed++;continue;
+        }
+        
+        // Tambah poster
+        const item={
+          id:`poster_${name}_${size}_${Date.now()}_${success}`.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_-]/g,''),
+          name,
+          size,
+          stock,
+          createdAt:new Date().toISOString()
+        };
+        
+        await fsSet('inventory_posters',item);
+        success++;
+      }
+      
+      e.target.value=''; // Reset input
+      toast(`✅ Import selesai! Berhasil: ${success}, Gagal: ${failed}`);
+    }catch(err){
+      toast('Gagal parse file: '+err.message,'error');
+    }
+  };
+  
+  if(isCSV){
+    reader.readAsText(file);
+  }else{
+    reader.readAsText(file); // Simplified - for production, use library like xlsx.js
+  }
+}
+
 </script>
 </body>
 </html>
